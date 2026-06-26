@@ -1,0 +1,4 @@
+Django>=5.2,<6.0
+python-dotenv>=1.0,<2.0
+python-telegram-bot>=22.0,<23.0
+

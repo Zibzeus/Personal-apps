@@ -1,0 +1,102 @@
+{% extends "finance/base.html" %}
+{% load finance_extras %}
+
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="eyebrow">Currency audit</p>
+    <h1>Kurs Check</h1>
+    <p class="lead">Konversi mata uang asing ke Rupiah. Hasil cek kurs disimpan sebagai history audit dan referensi forecasting, tanpa membuat transaksi otomatis.</p>
+  </div>
+</section>
+
+<section class="grid two manage-grid">
+  <div class="panel form-panel">
+    <div class="panel-head compact">
+      <h2>Convert to IDR</h2>
+      <span class="pill">Daily rate</span>
+    </div>
+    <form method="post" class="form-grid">
+      {% csrf_token %}
+      {% for field in form %}
+        <label class="field">
+          <span>{{ field.label }}</span>
+          {{ field }}
+          {% if field.help_text %}<small class="help-text">{{ field.help_text }}</small>{% endif %}
+          {% if field.errors %}<small class="error">{{ field.errors|striptags }}</small>{% endif %}
+        </label>
+      {% endfor %}
+      <div class="form-actions">
+        <button class="button" type="submit">Check Kurs</button>
+      </div>
+    </form>
+    <p class="provider-note">
+      Rates By <a href="https://www.exchangerate-api.com" rel="noopener">Exchange Rate API</a>.
+    </p>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head compact">
+      <h2>Latest Result</h2>
+      {% if result and result.is_stale %}<span class="pill warning">Cached</span>{% endif %}
+    </div>
+    {% if result %}
+      <div class="currency-result">
+        <span>{{ result.check.source_amount|floatformat:4 }} {{ result.check.source_currency }}</span>
+        <strong>{{ result.converted_amount|idr }}</strong>
+        <small>1 {{ result.check.source_currency }} = {{ result.rate|idr }}</small>
+        {% if result.is_stale %}
+          <p>API sedang tidak tersedia, jadi hasil memakai cache snapshot terakhir.</p>
+        {% endif %}
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <strong>Belum ada hasil di sesi ini</strong>
+        <p>Masukkan kode mata uang seperti USD, SGD, EUR, atau JPY.</p>
+      </div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <div>
+      <p class="eyebrow">Saved checks</p>
+      <h2>Kurs History</h2>
+    </div>
+    <span class="pill">{{ history|length }} latest</span>
+  </div>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Checked</th>
+          <th>Source</th>
+          <th>Rate</th>
+          <th>Converted</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in history %}
+          <tr>
+            <td>{{ item.checked_at|date:"Y-m-d H:i" }}</td>
+            <td>{{ item.source_amount|floatformat:4 }} {{ item.source_currency }}</td>
+            <td>{{ item.idr_rate|idr }}</td>
+            <td class="amount-cell">{{ item.converted_idr_amount|idr }}</td>
+            <td>
+              {% if item.rate_is_stale %}
+                <span class="type-pill adjustment">Cached</span>
+              {% else %}
+                <span class="type-pill income">Fresh</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="5"><div class="empty-state compact">Belum ada kurs check tersimpan.</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

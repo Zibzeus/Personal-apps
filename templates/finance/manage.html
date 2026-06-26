@@ -1,0 +1,75 @@
+{% extends "finance/base.html" %}
+{% load finance_extras %}
+
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="eyebrow">Manage</p>
+    <h1>{{ title }}</h1>
+    <p class="lead">Maintain the records that power your dashboard, audit, and Telegram entries.</p>
+  </div>
+</section>
+
+<section class="grid two manage-grid">
+  <div class="panel form-panel">
+    <div class="panel-head compact">
+      <h2>{% if editing %}Edit{% else %}Add{% endif %} {{ title }}</h2>
+      {% if editing %}<span class="pill">Editing #{{ editing.id }}</span>{% endif %}
+    </div>
+    <form method="post" class="form-grid">
+      {% csrf_token %}
+      {% for field in form %}
+        <label class="field">
+          <span>{{ field.label }}</span>
+          {{ field }}
+          {% if field.help_text %}<small class="help-text">{{ field.help_text }}</small>{% endif %}
+          {% if field.errors %}<small class="error">{{ field.errors|striptags }}</small>{% endif %}
+        </label>
+      {% endfor %}
+      <div class="form-actions">
+        <button class="button" type="submit">Save</button>
+        {% if editing %}<a class="button ghost" href="{% url list_url %}">Cancel</a>{% endif %}
+      </div>
+    </form>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">Database</p>
+        <h2>Records</h2>
+      </div>
+      {% if show_search %}
+        <form method="get" class="search-form">
+          <input class="field-input" type="search" name="q" value="{{ query }}" placeholder="Search">
+        </form>
+      {% endif %}
+    </div>
+    <div class="table-wrap">
+      <table class="data-table manage-table">
+        <tbody>
+          {% for row in rows %}
+            <tr>
+              {% for cell in row.cells %}
+                <td>{{ cell|format_cell }}</td>
+              {% endfor %}
+              <td class="row-actions">
+                {% for action in row.actions %}
+                  <a class="text-link" href="{{ action.href }}">{{ action.label }}</a>
+                {% endfor %}
+                <a class="text-link" href="?edit={{ row.object.id }}">Edit</a>
+                <form method="post">
+                  {% csrf_token %}
+                  <button name="delete_id" value="{{ row.object.id }}" class="link-button" type="submit">Delete</button>
+                </form>
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td><div class="empty-state compact">No records yet.</div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% endblock %}

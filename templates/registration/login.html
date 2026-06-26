@@ -1,0 +1,44 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Login - Money Manager</title>
+  <link rel="stylesheet" href="{% static 'finance/style.css' %}?v=2">
+</head>
+<body class="auth-body">
+  <main class="auth-shell">
+    <section class="auth-card">
+      <div class="brand auth-brand">
+        <span class="brand-mark">MM</span>
+        <span>
+          <strong>Money Manager</strong>
+          <small>Private dashboard</small>
+        </span>
+      </div>
+      <div>
+        <p class="eyebrow">Secure access</p>
+        <h1>Sign in</h1>
+        <p class="lead">Use your dashboard account to access your personal finance data.</p>
+      </div>
+      {% if form.errors %}
+        <div class="message error">Username atau password salah.</div>
+      {% endif %}
+      <form method="post" class="form-grid">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ next }}">
+        <label class="field">
+          <span>Username</span>
+          {{ form.username }}
+        </label>
+        <label class="field">
+          <span>Password</span>
+          {{ form.password }}
+        </label>
+        <button class="button" type="submit">Login</button>
+      </form>
+    </section>
+  </main>
+</body>
+</html>

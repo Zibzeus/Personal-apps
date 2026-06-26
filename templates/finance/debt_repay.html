@@ -1,0 +1,67 @@
+{% extends "finance/base.html" %}
+{% load finance_extras %}
+
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="eyebrow">Debt audit</p>
+    <h1>Record Payment</h1>
+    <p class="lead">Catat pembayaran tanpa edit balance manual. Balance debt akan dikurangi otomatis dan ditutup saat mencapai Rp0.</p>
+  </div>
+  <div class="head-actions">
+    <a class="button ghost" href="{% url 'finance:debts' %}">Back to Debts</a>
+  </div>
+</section>
+
+<section class="grid two manage-grid">
+  <div class="panel form-panel">
+    <div class="panel-head compact">
+      <h2>Payment Detail</h2>
+      <span class="pill">{{ debt.get_status_display }}</span>
+    </div>
+    <form method="post" class="form-grid">
+      {% csrf_token %}
+      {% for field in form %}
+        <label class="field">
+          <span>{{ field.label }}</span>
+          {{ field }}
+          {% if field.help_text %}<small class="help-text">{{ field.help_text }}</small>{% endif %}
+          {% if field.errors %}<small class="error">{{ field.errors|striptags }}</small>{% endif %}
+        </label>
+      {% endfor %}
+      <div class="form-actions">
+        <button class="button" type="submit">Save Payment</button>
+        <a class="button ghost" href="{% url 'finance:debts' %}">Cancel</a>
+      </div>
+    </form>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head compact">
+      <h2>Debt Summary</h2>
+    </div>
+    <dl class="detail-list">
+      <div>
+        <dt>Type</dt>
+        <dd>{{ debt.get_direction_display }}</dd>
+      </div>
+      <div>
+        <dt>Counterparty</dt>
+        <dd>{{ debt.counterparty }}</dd>
+      </div>
+      <div>
+        <dt>Principal Amount</dt>
+        <dd>{{ debt.principal_amount|idr }}</dd>
+      </div>
+      <div>
+        <dt>Current Balance</dt>
+        <dd>{{ debt.current_balance|idr }}</dd>
+      </div>
+      <div>
+        <dt>Due Date</dt>
+        <dd>{{ debt.due_date|default:"-" }}</dd>
+      </div>
+    </dl>
+  </div>
+</section>
+{% endblock %}

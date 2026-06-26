@@ -1,0 +1,60 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Money Manager</title>
+  <link rel="stylesheet" href="{% static 'finance/style.css' %}?v=3">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="{% url 'finance:dashboard' %}">
+        <span class="brand-mark">MM</span>
+        <span>
+          <strong>Money Manager</strong>
+          <small>Local finance audit</small>
+        </span>
+      </a>
+      <nav class="nav" aria-label="Primary navigation">
+        <a href="{% url 'finance:dashboard' %}"><span>Overview</span></a>
+        <a href="{% url 'finance:transactions' %}"><span>Transactions</span></a>
+        <a href="{% url 'finance:transfers' %}"><span>Transfers</span></a>
+        <a href="{% url 'finance:budgets' %}"><span>Budgets</span></a>
+        <a href="{% url 'finance:debts' %}"><span>Debts</span></a>
+        <a href="{% url 'finance:currency' %}"><span>Currency</span></a>
+        <a href="{% url 'finance:recurring' %}"><span>Recurring</span></a>
+        <a href="{% url 'finance:savings' %}"><span>Savings</span></a>
+        <a href="{% url 'finance:accounts' %}"><span>Accounts</span></a>
+        <a href="{% url 'finance:categories' %}"><span>Categories</span></a>
+      </nav>
+      <div class="side-actions">
+        <a class="button ghost full" href="{% url 'finance:export_csv' %}">Export CSV</a>
+        <a class="button ghost full" href="{% url 'finance:backup' %}">Backup DB</a>
+      </div>
+    </aside>
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <span class="status-dot"></span>
+          <span>Local dashboard</span>
+        </div>
+        <div class="topbar-actions">
+          <a class="button subtle" href="{% url 'finance:transactions' %}">Add transaction</a>
+        </div>
+      </header>
+      {% if messages %}
+        <div class="messages">
+          {% for message in messages %}
+            <div class="message {{ message.tags }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+  <script src="{% static 'finance/app.js' %}?v=3"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
