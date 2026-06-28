@@ -9,7 +9,7 @@ from django.db import transaction as db_transaction
 from django.db.models import Q
 from django.utils import timezone
 
-from .models import Account, Budget, Category, Debt, RecurringRule, Transaction, Transfer
+from .models import Account, Budget, Category, Debt, InvestmentTransaction, RecurringRule, Transaction, Transfer
 from .parser import ParsedEntry
 from .formatting import format_idr
 
@@ -337,6 +337,49 @@ def record_parsed_entry(parsed: ParsedEntry, *, source_user_id: str = ""):
             amount=parsed.amount,
             note=parsed.note,
         )
+    if parsed.action in {"investment_buy", "investment_sell", "investment_dividend", "investment_price"}:
+        from .investments import (
+            get_or_create_instrument,
+            get_or_create_investment_account,
+            manual_price,
+            record_investment_transaction,
+        )
+
+        if not parsed.instrument_symbol:
+            raise ValueError("Investment input needs an instrument symbol.")
+        instrument = get_or_create_instrument(parsed.instrument_symbol)
+        if parsed.action == "investment_price":
+            if not parsed.investment_price:
+                raise ValueError("Price input needs a price.")
+            return manual_price(instrument, parsed.investment_price, provider="Telegram")
+        account = get_or_create_investment_account(parsed.investment_account_hint)
+        if parsed.action == "investment_dividend":
+            if not parsed.amount:
+                raise ValueError("Dividend input needs an amount.")
+            return record_investment_transaction(
+                kind=InvestmentTransaction.Kind.DIVIDEND,
+                instrument=instrument,
+                account=account,
+                cash_amount=parsed.amount,
+                note=parsed.note,
+                source=Transaction.Source.TELEGRAM,
+                source_user_id=source_user_id,
+            )
+        if not parsed.investment_quantity or not parsed.investment_price:
+            raise ValueError("Buy/sell input needs quantity and price.")
+        return record_investment_transaction(
+            kind=InvestmentTransaction.Kind.BUY
+            if parsed.action == "investment_buy"
+            else InvestmentTransaction.Kind.SELL,
+            instrument=instrument,
+            account=account,
+            quantity=parsed.investment_quantity,
+            unit=parsed.investment_unit,
+            price=parsed.investment_price,
+            note=parsed.note,
+            source=Transaction.Source.TELEGRAM,
+            source_user_id=source_user_id,
+        )
     kind = Transaction.Kind.INCOME if parsed.action == "income" else Transaction.Kind.EXPENSE
     category_type = Category.Type.INCOME if kind == Transaction.Kind.INCOME else Category.Type.EXPENSE
     return create_transaction(
@@ -355,6 +398,14 @@ def parsed_entry_summary(parsed: ParsedEntry) -> str:
     amount = data.pop("amount")
     amount_label = format_idr(amount) if amount else "Missing"
     lines = [f"Action: {parsed.action}", f"Amount: {amount_label}"]
+    if parsed.instrument_symbol:
+        lines.append(f"Instrument: {parsed.instrument_symbol}")
+    if parsed.investment_quantity:
+        lines.append(f"Quantity: {parsed.investment_quantity:g} {parsed.investment_unit or 'shares'}")
+    if parsed.investment_price:
+        lines.append(f"Price: {format_idr(parsed.investment_price)}")
+    if parsed.investment_account_hint:
+        lines.append(f"Investment account: {parsed.investment_account_hint.title()}")
     if parsed.account_hint:
         lines.append(f"Account: {parsed.account_hint.upper()}")
     if parsed.to_account_hint:
@@ -378,9 +429,18 @@ def latest_telegram_item(user_id: str):
         source_user_id=user_id,
         status=Transfer.Status.CONFIRMED,
     ).order_by("-created_at").first()
+    investment_tx = InvestmentTransaction.objects.filter(
+        source=Transaction.Source.TELEGRAM,
+        source_user_id=user_id,
+        status=InvestmentTransaction.Status.CONFIRMED,
+    ).order_by("-created_at").first()
     if transfer and (not tx or transfer.created_at > tx.created_at):
-        return transfer
-    return tx
+        latest = transfer
+    else:
+        latest = tx
+    if investment_tx and (not latest or investment_tx.created_at > latest.created_at):
+        return investment_tx
+    return latest
 
 
 def soft_delete_item(item) -> None:

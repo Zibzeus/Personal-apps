@@ -38,6 +38,10 @@ INCOME_WORDS = {"gaji", "salary", "bonus", "income", "pemasukan", "masuk", "diba
 TRANSFER_WORDS = {"tf", "transfer", "pindah", "kirim"}
 PAYABLE_WORDS = {"utang", "hutang"}
 RECEIVABLE_WORDS = {"piutang"}
+INVESTMENT_BUY_WORDS = {"buy", "beli"}
+INVESTMENT_SELL_WORDS = {"sell", "jual"}
+INVESTMENT_DIVIDEND_WORDS = {"dividend", "dividen"}
+INVESTMENT_PRICE_WORDS = {"price", "harga"}
 
 
 @dataclass
@@ -48,6 +52,11 @@ class ParsedEntry:
     to_account_hint: str = ""
     category_hint: str = ""
     counterparty: str = ""
+    instrument_symbol: str = ""
+    investment_quantity: Decimal | None = None
+    investment_unit: str = ""
+    investment_price: Decimal | None = None
+    investment_account_hint: str = ""
     note: str = ""
     raw_text: str = ""
     confidence: float = 0.5
@@ -120,6 +129,52 @@ def parse_message(text: str) -> ParsedEntry:
     amount, without_amount = extract_amount(lowered)
     tokens = without_amount.split()
     first = tokens[0] if tokens else ""
+
+    if first in INVESTMENT_BUY_WORDS | INVESTMENT_SELL_WORDS:
+        match = re.match(
+            r"(?i)^(buy|beli|sell|jual)\s+([a-z0-9.:-]+)\s+([\d.,]+)\s*(lot|lots|share|shares|unit|units)?\s+([\d.,]+)(?:\s+([a-z0-9_-]+))?",
+            raw,
+        )
+        if match:
+            action = "investment_buy" if match.group(1).lower() in INVESTMENT_BUY_WORDS else "investment_sell"
+            quantity = normalize_amount(match.group(3))
+            price = normalize_amount(match.group(5))
+            return ParsedEntry(
+                action=action,
+                amount=price,
+                instrument_symbol=match.group(2).upper(),
+                investment_quantity=quantity,
+                investment_unit=(match.group(4) or "share").lower(),
+                investment_price=price,
+                investment_account_hint=match.group(6) or "",
+                note=raw,
+                raw_text=raw,
+                confidence=0.9 if quantity and price else 0.4,
+            )
+
+    if first in INVESTMENT_DIVIDEND_WORDS:
+        symbol = tokens[1].upper() if len(tokens) > 1 else ""
+        return ParsedEntry(
+            action="investment_dividend",
+            amount=amount,
+            instrument_symbol=symbol,
+            investment_account_hint=tokens[-1] if len(tokens) > 2 else "",
+            note=raw,
+            raw_text=raw,
+            confidence=0.85 if amount and symbol else 0.4,
+        )
+
+    if first in INVESTMENT_PRICE_WORDS:
+        symbol = tokens[1].upper() if len(tokens) > 1 else ""
+        return ParsedEntry(
+            action="investment_price",
+            amount=amount,
+            instrument_symbol=symbol,
+            investment_price=amount,
+            note=raw,
+            raw_text=raw,
+            confidence=0.85 if amount and symbol else 0.4,
+        )
 
     if first in TRANSFER_WORDS or lowered.startswith("tf "):
         accounts = [token for token in tokens[1:] if token not in TRANSFER_WORDS]

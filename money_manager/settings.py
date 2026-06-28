@@ -102,6 +102,8 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 DEFAULT_CURRENCY = os.getenv("DEFAULT_CURRENCY", "IDR")
 SAVING_RATE_TARGET = float(os.getenv("SAVING_RATE_TARGET", "0.20"))
 EXCHANGE_RATE_API_URL = os.getenv("EXCHANGE_RATE_API_URL", "https://open.er-api.com/v6/latest/{currency}")
+MARKET_DATA_PROVIDER = os.getenv("MARKET_DATA_PROVIDER", "auto")
+ALPHA_VANTAGE_API_KEY = os.getenv("ALPHA_VANTAGE_API_KEY", "")
 REQUIRE_LOGIN = os.getenv("DJANGO_REQUIRE_LOGIN", "1") == "1"
 LOGIN_URL = "/accounts/login/"
 LOGIN_REDIRECT_URL = "/"

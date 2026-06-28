@@ -224,11 +224,22 @@
     });
   }
 
+  function renderInvestment(data) {
+    barChart("allocationChart", data.allocation || [], ["amount"], {
+      labels: { amount: "Allocation" },
+      colors: [palette.income],
+    });
+    barChart("holdingsChart", data.holdings || [], ["amount"], {
+      labels: { amount: "Market value" },
+      colors: [palette.blue],
+    });
+  }
+
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => setupRupiahInputs(document));
   } else {
     setupRupiahInputs(document);
   }
 
-  window.MoneyManagerCharts = { renderDashboard, setupRupiahInputs };
+  window.MoneyManagerCharts = { renderDashboard, renderInvestment, setupRupiahInputs };
 })();

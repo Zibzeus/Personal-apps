@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Money Manager</title>
-  <link rel="stylesheet" href="{% static 'finance/style.css' %}?v=3">
+  <link rel="stylesheet" href="{% static 'finance/style.css' %}?v=4">
 </head>
 <body>
   <div class="app-shell">
@@ -21,6 +21,9 @@
         <a href="{% url 'finance:dashboard' %}"><span>Overview</span></a>
         <a href="{% url 'finance:transactions' %}"><span>Transactions</span></a>
         <a href="{% url 'finance:transfers' %}"><span>Transfers</span></a>
+        <a href="{% url 'finance:investments' %}"><span>Investments</span></a>
+        <a href="{% url 'finance:financial_freedom' %}"><span>FIRE</span></a>
+        <a href="{% url 'finance:watchlist' %}"><span>Watchlist</span></a>
         <a href="{% url 'finance:budgets' %}"><span>Budgets</span></a>
         <a href="{% url 'finance:debts' %}"><span>Debts</span></a>
         <a href="{% url 'finance:currency' %}"><span>Currency</span></a>
@@ -54,7 +57,7 @@
       {% block content %}{% endblock %}
     </main>
   </div>
-  <script src="{% static 'finance/app.js' %}?v=3"></script>
+  <script src="{% static 'finance/app.js' %}?v=4"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

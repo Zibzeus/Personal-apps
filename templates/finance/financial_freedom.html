@@ -1,0 +1,121 @@
+{% extends "finance/base.html" %}
+{% load finance_extras %}
+
+{% block content %}
+<section class="page-head dashboard-head">
+  <div>
+    <p class="eyebrow">FIRE planning</p>
+    <h1>Financial Freedom</h1>
+    <p class="lead">Estimate your FIRE number, current gap, runway, and monthly contribution path.</p>
+  </div>
+  <div class="head-actions">
+    <a class="button ghost" href="{% url 'finance:investments' %}">Portfolio</a>
+  </div>
+</section>
+
+<section class="kpi-grid">
+  <div class="metric-card primary">
+    <span class="metric-label">Net Worth</span>
+    <strong>{{ summary.net_worth|idr }}</strong>
+    <small>Cash + investments - payable debt</small>
+  </div>
+  <div class="metric-card">
+    <span class="metric-label">FIRE Number</span>
+    <strong>{{ summary.fire_number|idr }}</strong>
+    <small>Annual expense x {{ summary.fire_multiplier|floatformat:2 }}</small>
+  </div>
+  <div class="metric-card">
+    <span class="metric-label">FIRE Gap</span>
+    <strong>{{ summary.gap|idr }}</strong>
+    <small>Remaining target</small>
+  </div>
+  <div class="metric-card">
+    <span class="metric-label">Runway</span>
+    <strong>{{ summary.runway_months|floatformat:1 }} mo</strong>
+    <small>Cash vs monthly expense</small>
+  </div>
+</section>
+
+<section class="grid two manage-grid">
+  <div class="panel form-panel">
+    <div class="panel-head compact">
+      <h2>FIRE Settings</h2>
+      <span class="pill">{{ summary.progress|progress|floatformat:1 }}%</span>
+    </div>
+    <form method="post" class="form-grid">
+      {% csrf_token %}
+      {% for field in form %}
+        <label class="field">
+          <span>{{ field.label }}</span>
+          {{ field }}
+          {% if field.help_text %}<small class="help-text">{{ field.help_text }}</small>{% endif %}
+          {% if field.errors %}<small class="error">{{ field.errors|striptags }}</small>{% endif %}
+        </label>
+      {% endfor %}
+      <div class="form-actions">
+        <button class="button" type="submit">Save FIRE Profile</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head compact">
+      <h2>Simulation</h2>
+    </div>
+    <dl class="detail-list">
+      <div><dt>Monthly Expense</dt><dd>{{ summary.monthly_expense|idr }}</dd></div>
+      <div><dt>Annual Expense</dt><dd>{{ summary.annual_expense|idr }}</dd></div>
+      <div><dt>Monthly Contribution</dt><dd>{{ summary.monthly_contribution|idr }}</dd></div>
+      <div>
+        <dt>ETA to FIRE</dt>
+        <dd>{% if summary.months_to_fire == None %}-{% else %}{{ summary.months_to_fire }} months{% endif %}</dd>
+      </div>
+    </dl>
+    <div class="budget-row fire-progress">
+      <div>
+        <strong>Progress</strong>
+        <span>{{ summary.progress|progress|floatformat:1 }}%</span>
+      </div>
+      <div class="bar"><span style="width: {{ summary.progress|progress }}%"></span></div>
+    </div>
+  </div>
+</section>
+
+<section class="grid two">
+  <div class="panel form-panel">
+    <div class="panel-head compact">
+      <h2>Allocation Target</h2>
+    </div>
+    <form method="post" action="{% url 'finance:allocation_targets' %}" class="form-grid">
+      {% csrf_token %}
+      {% for field in target_form %}
+        <label class="field">
+          <span>{{ field.label }}</span>
+          {{ field }}
+          {% if field.errors %}<small class="error">{{ field.errors|striptags }}</small>{% endif %}
+        </label>
+      {% endfor %}
+      <div class="form-actions">
+        <button class="button" type="submit">Save Target</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head compact">
+      <h2>Current Targets</h2>
+    </div>
+    {% for target in targets %}
+      <div class="budget-row">
+        <div>
+          <strong>{{ target.get_asset_class_display }}</strong>
+          <span>{{ target.target_percent|floatformat:1 }}%</span>
+        </div>
+        <div class="bar"><span style="width: {{ target.target_percent|progress }}%"></span></div>
+      </div>
+    {% empty %}
+      <div class="empty-state compact">Belum ada allocation target.</div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

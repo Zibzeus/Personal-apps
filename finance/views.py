@@ -15,11 +15,17 @@ from django.utils import timezone
 
 from .forms import (
     AccountForm,
+    AllocationTargetForm,
     BudgetForm,
     CategoryForm,
     CurrencyConversionForm,
     DebtForm,
     DebtRepaymentForm,
+    FinancialFreedomProfileForm,
+    InstrumentForm,
+    InvestmentAccountForm,
+    InvestmentTransactionForm,
+    PriceSnapshotForm,
     RecurringRuleForm,
     SavingsGoalForm,
     TransactionForm,
@@ -29,15 +35,29 @@ from .exchange_rates import ExchangeRateUnavailable, convert_to_idr
 from .formatting import format_idr
 from .models import (
     Account,
+    AllocationTarget,
     Budget,
     Category,
     CurrencyConversionCheck,
     Debt,
+    FinancialFreedomProfile,
+    Instrument,
+    InvestmentAccount,
+    InvestmentInsight,
+    InvestmentTransaction,
     Recommendation,
+    PriceSnapshot,
     RecurringRule,
     SavingsGoal,
     Transaction,
     Transfer,
+)
+from .investments import (
+    MarketDataUnavailable,
+    financial_freedom_summary,
+    generate_investment_insights,
+    portfolio_summary,
+    refresh_price,
 )
 from .recommendations import generate_recommendations
 from .services import (
@@ -91,6 +111,12 @@ def dashboard(request):
         "charts_json": json.dumps(charts, default=decimal_json),
     }
     return render(request, "finance/dashboard.html", context)
+
+
+def _decimal_text(value, places=4):
+    value = Decimal(value or 0)
+    text = f"{value:.{places}f}"
+    return text.rstrip("0").rstrip(".") or "0"
 
 
 def _generic_manage(request, *, model, form_class, title, rows_builder, list_url, queryset=None, form_initial=None):
@@ -216,6 +242,212 @@ def transfers(request):
         rows_builder=lambda qs: [
             {"object": obj, "cells": [obj.date, obj.from_account.name, obj.to_account.name, obj.amount, obj.fee_amount, obj.note]}
             for obj in qs[:200]
+        ],
+    )
+
+
+def investment_dashboard(request):
+    portfolio = portfolio_summary()
+    fire = financial_freedom_summary()
+    insights = generate_investment_insights()
+    charts = {
+        "allocation": [
+            {"label": item["label"], "amount": item["amount"]}
+            for item in portfolio["allocation"]
+        ],
+        "holdings": [
+            {"label": row["instrument"].symbol, "amount": row["market_value_idr"]}
+            for row in portfolio["positions"][:8]
+        ],
+    }
+    return render(
+        request,
+        "finance/investments.html",
+        {
+            "portfolio": portfolio,
+            "fire": fire,
+            "insights": [insight for insight in insights if insight.status == InvestmentInsight.Status.ACTIVE],
+            "charts_json": json.dumps(charts, default=decimal_json),
+        },
+    )
+
+
+def investment_instruments(request):
+    return _generic_manage(
+        request,
+        model=Instrument,
+        form_class=InstrumentForm,
+        title="Investment Instruments",
+        list_url="finance:investment_instruments",
+        rows_builder=lambda qs: [
+            {
+                "object": obj,
+                "cells": [
+                    obj.symbol,
+                    obj.provider_symbol or "-",
+                    obj.get_market_display(),
+                    obj.currency,
+                    obj.get_asset_class_display(),
+                    _decimal_text(obj.lot_size),
+                    "Watchlist" if obj.is_watchlisted else "-",
+                ],
+                "actions": [
+                    {"label": "Price", "href": reverse("finance:investment_price", args=[obj.id])},
+                ],
+            }
+            for obj in qs
+        ],
+    )
+
+
+def investment_accounts(request):
+    return _generic_manage(
+        request,
+        model=InvestmentAccount,
+        form_class=InvestmentAccountForm,
+        title="Investment Accounts",
+        list_url="finance:investment_accounts",
+        rows_builder=lambda qs: [
+            {
+                "object": obj,
+                "cells": [
+                    obj.name,
+                    obj.platform or "-",
+                    obj.currency,
+                    obj.linked_cash_account.name if obj.linked_cash_account else "-",
+                    "Active" if obj.is_active else "Inactive",
+                ],
+            }
+            for obj in qs
+        ],
+    )
+
+
+def investment_transactions(request):
+    queryset = InvestmentTransaction.objects.exclude(status=InvestmentTransaction.Status.DELETED).select_related(
+        "account", "instrument"
+    )
+    return _generic_manage(
+        request,
+        model=InvestmentTransaction,
+        form_class=InvestmentTransactionForm,
+        title="Investment Transactions",
+        list_url="finance:investment_transactions",
+        queryset=queryset,
+        rows_builder=lambda qs: [
+            {
+                "object": obj,
+                "cells": [
+                    obj.date,
+                    obj.get_kind_display(),
+                    obj.instrument.symbol,
+                    obj.account.name,
+                    _decimal_text(obj.quantity),
+                    _decimal_text(obj.price),
+                    _decimal_text(obj.cash_amount, 2),
+                    obj.currency,
+                ],
+            }
+            for obj in qs[:200]
+        ],
+    )
+
+
+def investment_price(request, pk):
+    instrument = get_object_or_404(Instrument, pk=pk)
+    latest = instrument.price_snapshots.first()
+    if request.method == "POST" and request.POST.get("refresh_provider"):
+        provider = request.POST.get("refresh_provider") or settings.MARKET_DATA_PROVIDER
+        try:
+            result = refresh_price(instrument, provider=provider)
+            if result.is_stale:
+                messages.warning(request, "Provider gagal. Menggunakan cached price terakhir dan menandainya stale.")
+            else:
+                messages.success(request, "Harga berhasil direfresh.")
+        except MarketDataUnavailable as exc:
+            messages.error(request, str(exc))
+        return redirect("finance:investment_price", pk=instrument.id)
+    form = PriceSnapshotForm(request.POST or None, instrument=instrument)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Manual price saved.")
+        return redirect("finance:investment_price", pk=instrument.id)
+    history = instrument.price_snapshots.all()[:20]
+    return render(
+        request,
+        "finance/investment_price.html",
+        {
+            "instrument": instrument,
+            "form": form,
+            "latest": latest,
+            "history": history,
+        },
+    )
+
+
+def financial_freedom(request):
+    profile = FinancialFreedomProfile.objects.order_by("name").first()
+    form = FinancialFreedomProfileForm(request.POST or None, instance=profile)
+    if request.method == "POST" and form.is_valid():
+        saved = form.save(commit=False)
+        saved.name = profile.name if profile else "Default"
+        saved.save()
+        messages.success(request, "Financial freedom profile saved.")
+        return redirect("finance:financial_freedom")
+    return render(
+        request,
+        "finance/financial_freedom.html",
+        {
+            "form": form,
+            "summary": financial_freedom_summary(profile),
+            "targets": AllocationTarget.objects.all(),
+            "target_form": AllocationTargetForm(),
+        },
+    )
+
+
+def allocation_targets(request):
+    if request.method != "POST":
+        return redirect("finance:financial_freedom")
+    form = AllocationTargetForm(request.POST)
+    if form.is_valid():
+        AllocationTarget.objects.update_or_create(
+            asset_class=form.cleaned_data["asset_class"],
+            defaults={"target_percent": form.cleaned_data["target_percent"]},
+        )
+        messages.success(request, "Allocation target saved.")
+    else:
+        messages.error(request, "Allocation target tidak valid.")
+    return redirect("finance:financial_freedom")
+
+
+def watchlist(request):
+    initial = {"is_watchlisted": True}
+    queryset = Instrument.objects.filter(is_watchlisted=True)
+    return _generic_manage(
+        request,
+        model=Instrument,
+        form_class=InstrumentForm,
+        title="Watchlist",
+        list_url="finance:watchlist",
+        queryset=queryset,
+        form_initial=initial,
+        rows_builder=lambda qs: [
+            {
+                "object": obj,
+                "cells": [
+                    obj.symbol,
+                    obj.provider_symbol or "-",
+                    obj.get_market_display(),
+                    obj.currency,
+                    obj.get_asset_class_display(),
+                    obj.watch_note or "-",
+                ],
+                "actions": [
+                    {"label": "Price", "href": reverse("finance:investment_price", args=[obj.id])},
+                ],
+            }
+            for obj in qs
         ],
     )
 

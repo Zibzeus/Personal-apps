@@ -1,0 +1,143 @@
+{% extends "finance/base.html" %}
+{% load finance_extras %}
+
+{% block content %}
+<section class="page-head dashboard-head">
+  <div>
+    <p class="eyebrow">Financial freedom engine</p>
+    <h1>Investment Portfolio</h1>
+    <p class="lead">Track holdings, gain/loss, allocation, and FIRE readiness without turning this into buy/sell advice.</p>
+  </div>
+  <div class="head-actions">
+    <a class="button" href="{% url 'finance:investment_transactions' %}">Add Investment Tx</a>
+    <a class="button ghost" href="{% url 'finance:investment_instruments' %}">Manage Instruments</a>
+  </div>
+</section>
+
+<section class="kpi-grid">
+  <div class="metric-card primary">
+    <span class="metric-label">Portfolio Value</span>
+    <strong>{{ portfolio.total_market_value|idr }}</strong>
+    <small>Latest available prices</small>
+  </div>
+  <div class="metric-card">
+    <span class="metric-label">Unrealized Gain/Loss</span>
+    <strong>{{ portfolio.unrealized_gain|idr }}</strong>
+    <small>Market value minus cost basis</small>
+  </div>
+  <div class="metric-card">
+    <span class="metric-label">Realized + Dividend</span>
+    <strong>{{ portfolio.realized_income|idr }}</strong>
+    <small>Closed gains and cash income</small>
+  </div>
+  <div class="metric-card">
+    <span class="metric-label">FIRE Progress</span>
+    <strong>{{ fire.progress|progress|floatformat:1 }}%</strong>
+    <small>Net worth vs FIRE number</small>
+  </div>
+</section>
+
+<section class="dashboard-grid">
+  <div class="panel recommendations-panel">
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">Portfolio audit</p>
+        <h2>Investment Insights</h2>
+      </div>
+      <span class="pill">{{ insights|length }} active</span>
+    </div>
+    <div class="recommendations">
+      {% for insight in insights %}
+        <article class="recommendation {{ insight.severity }}">
+          <div class="recommendation-top">
+            <span class="severity-badge">{{ insight.severity }}</span>
+            {% if insight.estimated_amount %}
+              <strong class="saving-badge">{{ insight.estimated_amount|idr }}</strong>
+            {% endif %}
+          </div>
+          <div>
+            <h3>{{ insight.title }}</h3>
+            <p>{{ insight.reason }}</p>
+          </div>
+        </article>
+      {% empty %}
+        <div class="empty-state">
+          <strong>No investment insights yet</strong>
+          <p>Tambahkan instrument, transaksi, dan price snapshot untuk audit portfolio.</p>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="panel accounts-panel">
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">FIRE snapshot</p>
+        <h2>Freedom Metrics</h2>
+      </div>
+      <a class="text-link" href="{% url 'finance:financial_freedom' %}">Tune</a>
+    </div>
+    <dl class="detail-list">
+      <div><dt>Net Worth</dt><dd>{{ fire.net_worth|idr }}</dd></div>
+      <div><dt>FIRE Number</dt><dd>{{ fire.fire_number|idr }}</dd></div>
+      <div><dt>FIRE Gap</dt><dd>{{ fire.gap|idr }}</dd></div>
+      <div><dt>Runway</dt><dd>{{ fire.runway_months|floatformat:1 }} months</dd></div>
+    </dl>
+  </div>
+</section>
+
+<section class="chart-grid">
+  <div class="panel chart-panel">
+    <div class="panel-head compact"><h2>Allocation</h2><span>By asset class</span></div>
+    <canvas id="allocationChart" height="220"></canvas>
+  </div>
+  <div class="panel chart-panel">
+    <div class="panel-head compact"><h2>Top Holdings</h2><span>Market value</span></div>
+    <canvas id="holdingsChart" height="220"></canvas>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <div>
+      <p class="eyebrow">Holdings</p>
+      <h2>Open Positions</h2>
+    </div>
+    <a class="text-link" href="{% url 'finance:investment_transactions' %}">Transactions</a>
+  </div>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Instrument</th><th>Qty</th><th>Avg Cost</th><th>Price</th><th>Market Value</th><th>Unrealized</th><th>Total Return</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in portfolio.positions %}
+          <tr>
+            <td>{{ row.instrument.symbol }}</td>
+            <td>{{ row.quantity|floatformat:4 }}</td>
+            <td>{{ row.average_cost|money_currency:row.instrument.currency }}</td>
+            <td>
+              {{ row.latest_price|money_currency:row.instrument.currency }}
+              {% if row.price_is_stale %}<span class="type-pill adjustment">Stale</span>{% endif %}
+            </td>
+            <td class="amount-cell">{{ row.market_value_idr|idr }}</td>
+            <td>{{ row.unrealized_gain|idr }}</td>
+            <td>{{ row.total_return|idr }}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="7"><div class="empty-state compact">Belum ada posisi investasi.</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{{ charts_json|json_script:"investment-chart-data" }}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  window.MoneyManagerCharts.renderInvestment(JSON.parse(document.getElementById("investment-chart-data").textContent));
+</script>
+{% endblock %}

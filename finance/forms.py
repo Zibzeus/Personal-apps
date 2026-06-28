@@ -5,7 +5,22 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
-from .models import Account, Budget, Category, Debt, RecurringRule, SavingsGoal, Transaction, Transfer
+from .models import (
+    Account,
+    AllocationTarget,
+    Budget,
+    Category,
+    Debt,
+    FinancialFreedomProfile,
+    Instrument,
+    InvestmentAccount,
+    InvestmentTransaction,
+    PriceSnapshot,
+    RecurringRule,
+    SavingsGoal,
+    Transaction,
+    Transfer,
+)
 
 
 class DateInput(forms.DateInput):
@@ -90,8 +105,23 @@ def apply_field_style(fields):
 
 
 class BaseStyledForm(forms.ModelForm):
+    grouped_decimal_fields = set()
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        for name in self.grouped_decimal_fields:
+            field = self.fields.get(name)
+            if isinstance(field, forms.DecimalField):
+                self.fields[name] = GroupedDecimalField(
+                    required=field.required,
+                    max_digits=field.max_digits,
+                    decimal_places=field.decimal_places,
+                    min_value=field.min_value,
+                    max_value=field.max_value,
+                    label=field.label,
+                    help_text=field.help_text,
+                    initial=field.initial,
+                )
         apply_field_style(self.fields)
 
 
@@ -119,6 +149,115 @@ class TransferForm(BaseStyledForm):
         model = Transfer
         fields = ["date", "from_account", "to_account", "amount", "fee_amount", "note", "source"]
         widgets = {"date": DateInput()}
+
+
+class InstrumentForm(BaseStyledForm):
+    grouped_decimal_fields = {"lot_size"}
+
+    class Meta:
+        model = Instrument
+        fields = [
+            "symbol",
+            "provider_symbol",
+            "name",
+            "market",
+            "currency",
+            "asset_class",
+            "lot_size",
+            "is_active",
+            "is_watchlisted",
+            "watch_note",
+        ]
+
+    def clean_symbol(self):
+        return self.cleaned_data["symbol"].strip().upper()
+
+    def clean_provider_symbol(self):
+        return self.cleaned_data["provider_symbol"].strip().upper()
+
+    def clean_currency(self):
+        return self.cleaned_data["currency"].strip().upper()
+
+
+class InvestmentAccountForm(BaseStyledForm):
+    class Meta:
+        model = InvestmentAccount
+        fields = ["name", "platform", "currency", "linked_cash_account", "is_active"]
+
+    def clean_currency(self):
+        return self.cleaned_data["currency"].strip().upper()
+
+
+class InvestmentTransactionForm(BaseStyledForm):
+    grouped_decimal_fields = {"quantity", "price", "fee_amount", "cash_amount"}
+
+    class Meta:
+        model = InvestmentTransaction
+        fields = [
+            "date",
+            "kind",
+            "account",
+            "instrument",
+            "quantity",
+            "price",
+            "fee_amount",
+            "cash_amount",
+            "currency",
+            "note",
+            "source",
+        ]
+        widgets = {"date": DateInput()}
+
+    def clean_currency(self):
+        return self.cleaned_data["currency"].strip().upper()
+
+
+class PriceSnapshotForm(BaseStyledForm):
+    grouped_decimal_fields = {"price"}
+
+    class Meta:
+        model = PriceSnapshot
+        fields = ["price", "currency", "provider", "is_stale"]
+
+    def __init__(self, *args, instrument=None, **kwargs):
+        self.instrument = instrument
+        super().__init__(*args, **kwargs)
+        if instrument and not self.initial.get("currency"):
+            self.fields["currency"].initial = instrument.currency
+        self.fields["provider"].initial = self.fields["provider"].initial or "Manual"
+
+    def clean_currency(self):
+        return self.cleaned_data["currency"].strip().upper()
+
+    def save(self, commit=True):
+        snapshot = super().save(commit=False)
+        if self.instrument:
+            snapshot.instrument = self.instrument
+        if commit:
+            snapshot.save()
+        return snapshot
+
+
+class AllocationTargetForm(BaseStyledForm):
+    grouped_decimal_fields = {"target_percent"}
+
+    class Meta:
+        model = AllocationTarget
+        fields = ["asset_class", "target_percent"]
+
+
+class FinancialFreedomProfileForm(BaseStyledForm):
+    grouped_decimal_fields = {"fire_multiplier", "emergency_fund_months"}
+
+    class Meta:
+        model = FinancialFreedomProfile
+        fields = [
+            "annual_expense",
+            "fire_multiplier",
+            "target_monthly_contribution",
+            "emergency_fund_months",
+            "risk_profile",
+        ]
 
 
 class BudgetForm(BaseStyledForm):

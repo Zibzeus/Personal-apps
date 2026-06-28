@@ -117,5 +117,6 @@ Harus diarahkan ke halaman login. Setelah login, dashboard akan tampil.
 - Jangan simpan banyak backup SQLite di PythonAnywhere Free karena storage 512MB terbatas.
 - Untuk backup, pakai tombol Backup DB lalu download file ke laptop.
 - Kurs checker memakai `https://open.er-api.com/v6/latest/{currency}` dan menyimpan hasil cek ke SQLite untuk audit/forecasting.
+- Investment module tetap bisa jalan dengan manual price tanpa dependency tambahan. `yfinance` optional bisa berat untuk storage 512MB; gunakan hanya kalau benar-benar perlu.
 - Setelah update CSS/JS, jalankan `python manage.py collectstatic --noinput` dan reload web app.
 - Kalau error, cek **Error log** di Web tab PythonAnywhere.

@@ -711,6 +711,15 @@ input[data-rupiah-input="true"] {
   justify-content: flex-end;
 }
 
+.stacked-action {
+  margin-top: 14px;
+}
+
+.fire-progress {
+  margin-top: 18px;
+  margin-bottom: 0;
+}
+
 .empty-state {
   border: 1px dashed #b8c4d4;
   border-radius: var(--radius);

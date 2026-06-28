@@ -10,6 +10,8 @@ Aplikasi money manager pribadi yang berjalan di laptop Windows. Input utama lewa
 - CRUD akun, kategori, transaksi, transfer, budget, recurring, hutang/piutang, dan savings goal.
 - Debt repayment otomatis mengurangi current balance dan menutup debt saat sudah Rp0.
 - Kurs check di `/currency/` untuk konversi mata uang asing ke Rupiah, dengan history tersimpan untuk audit/forecasting.
+- Investment portfolio di `/investments/` dengan holdings, market value, cost basis, gain/loss, allocation, watchlist, manual/API price cache.
+- Financial freedom/FIRE planner di `/financial-freedom/` dengan FIRE number, net worth, gap, runway, dan simulasi kontribusi bulanan.
 - Live Rupiah formatting di form nominal, contoh `12000` otomatis tampil `12.000`.
 - Financial audit: over-budget, spending spike, discretionary saving opportunity, subscription review, duplikat transaksi, uncategorized, hutang jatuh tempo, dan saving rate gap.
 - Export CSV dan backup SQLite lokal.
@@ -32,6 +34,15 @@ Kurs checker memakai ExchangeRate-API Open Access tanpa API key. Default endpoin
 ```env
 EXCHANGE_RATE_API_URL=https://open.er-api.com/v6/latest/{currency}
 ```
+
+Market data investasi local-first. Manual price selalu bisa dipakai. Untuk API gratis opsional:
+
+```env
+MARKET_DATA_PROVIDER=auto
+ALPHA_VANTAGE_API_KEY=
+```
+
+`yfinance` juga didukung kalau kamu install sendiri di environment lokal. Kalau API gagal, app memakai cached/manual price terakhir dan menandainya stale.
 
 Jalankan dashboard:
 
@@ -87,6 +98,10 @@ DJANGO_CSRF_TRUSTED_ORIGINS=https://domain-kamu.example
 - `tf bca ovo 200000`
 - `utang ke budi 100000`
 - `piutang andi 250000`
+- `buy bbca 10 lot 10000 ajaib`
+- `sell bbca 2 lot 11000`
+- `dividend bbca 150000`
+- `price bbca 10500`
 
 Semua input penting akan diminta konfirmasi sebelum masuk database.
 

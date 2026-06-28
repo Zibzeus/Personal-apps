@@ -53,13 +53,18 @@ class Command(BaseCommand):
                         InlineKeyboardButton("Report", callback_data="report"),
                     ],
                     [
+                        InlineKeyboardButton("Buy", callback_data="wizard:investment_buy"),
+                        InlineKeyboardButton("Price", callback_data="wizard:investment_price"),
+                    ],
+                    [
                         InlineKeyboardButton("Undo last", callback_data="undo"),
                     ],
                 ]
             )
             await update.message.reply_text(
                 "Money Manager aktif.\n"
-                "Contoh: makan 35000 bca, gaji 15000000 bca, tf bca ovo 200000, utang ke budi 100000.",
+                "Contoh: makan 35000 bca, gaji 15000000 bca, tf bca ovo 200000, "
+                "utang ke budi 100000, buy bbca 10 lot 10000 ajaib.",
                 reply_markup=keyboard,
             )
 
@@ -75,7 +80,11 @@ class Command(BaseCommand):
                 "makan 35000 bca\n"
                 "gaji 15000000 bca\n"
                 "tf bca ovo 200000\n"
-                "utang ke budi 100000"
+                "utang ke budi 100000\n"
+                "buy bbca 10 lot 10000 ajaib\n"
+                "sell bbca 2 lot 11000\n"
+                "dividend bbca 150000\n"
+                "price bbca 10500"
             )
 
         async def report(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -139,6 +148,8 @@ class Command(BaseCommand):
                     "expense": "Ketik: makan 35000 bca",
                     "income": "Ketik: gaji 15000000 bca",
                     "transfer": "Ketik: tf bca ovo 200000",
+                    "investment_buy": "Ketik: buy bbca 10 lot 10000 ajaib",
+                    "investment_price": "Ketik: price bbca 10500",
                 }
                 await query.edit_message_text(examples.get(mode, "Ketik transaksi."))
                 return

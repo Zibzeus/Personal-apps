@@ -1,0 +1,90 @@
+{% extends "finance/base.html" %}
+{% load finance_extras %}
+
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="eyebrow">Market data</p>
+    <h1>{{ instrument.symbol }} Price</h1>
+    <p class="lead">Manual price is the reliable fallback. API refresh is optional and cached locally.</p>
+  </div>
+  <div class="head-actions">
+    <a class="button ghost" href="{% url 'finance:investment_instruments' %}">Back to Instruments</a>
+  </div>
+</section>
+
+<section class="grid two manage-grid">
+  <div class="panel form-panel">
+    <div class="panel-head compact">
+      <h2>Manual Price</h2>
+      <span class="pill">{{ instrument.currency }}</span>
+    </div>
+    <form method="post" class="form-grid">
+      {% csrf_token %}
+      {% for field in form %}
+        <label class="field">
+          <span>{{ field.label }}</span>
+          {{ field }}
+          {% if field.help_text %}<small class="help-text">{{ field.help_text }}</small>{% endif %}
+          {% if field.errors %}<small class="error">{{ field.errors|striptags }}</small>{% endif %}
+        </label>
+      {% endfor %}
+      <div class="form-actions">
+        <button class="button" type="submit">Save Manual Price</button>
+      </div>
+    </form>
+    <form method="post" class="inline-actions stacked-action">
+      {% csrf_token %}
+      <button class="button ghost" type="submit" name="refresh_provider" value="auto">Refresh API</button>
+      <button class="button ghost" type="submit" name="refresh_provider" value="yfinance">yfinance</button>
+      <button class="button ghost" type="submit" name="refresh_provider" value="alpha">Alpha Vantage</button>
+    </form>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head compact">
+      <h2>Latest Snapshot</h2>
+      {% if latest and latest.is_stale %}<span class="pill warning">Stale</span>{% endif %}
+    </div>
+    {% if latest %}
+      <div class="currency-result">
+        <span>{{ latest.provider }} · {{ latest.fetched_at|date:"Y-m-d H:i" }}</span>
+        <strong>{{ latest.price|money_currency:latest.currency }}</strong>
+        <small>{{ latest.currency }} per share/unit</small>
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <strong>No price yet</strong>
+        <p>Input manual price dulu agar market value bisa dihitung.</p>
+      </div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <div>
+      <p class="eyebrow">Local cache</p>
+      <h2>Price History</h2>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead><tr><th>Fetched</th><th>Price</th><th>Currency</th><th>Provider</th><th>Status</th></tr></thead>
+      <tbody>
+        {% for item in history %}
+          <tr>
+            <td>{{ item.fetched_at|date:"Y-m-d H:i" }}</td>
+            <td class="amount-cell">{{ item.price|money_currency:item.currency }}</td>
+            <td>{{ item.currency }}</td>
+            <td>{{ item.provider }}</td>
+            <td>{% if item.is_stale %}<span class="type-pill adjustment">Stale</span>{% else %}<span class="type-pill income">Fresh</span>{% endif %}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="5"><div class="empty-state compact">No price snapshots yet.</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

@@ -14,11 +14,17 @@ from .exchange_rates import ExchangeRateUnavailable, convert_to_idr
 from .forms import DebtForm, TransactionForm
 from .models import (
     Account,
+    AllocationTarget,
     Budget,
     Category,
     CurrencyConversionCheck,
     Debt,
     ExchangeRateSnapshot,
+    FinancialFreedomProfile,
+    Instrument,
+    InvestmentAccount,
+    InvestmentTransaction,
+    PriceSnapshot,
     Recommendation,
     Transaction,
 )
@@ -32,6 +38,15 @@ from .services import (
     first_day,
     monthly_summary,
     repay_debt,
+)
+from .investments import (
+    MarketDataUnavailable,
+    financial_freedom_summary,
+    generate_investment_insights,
+    manual_price,
+    portfolio_summary,
+    record_investment_transaction,
+    refresh_price,
 )
 
 
@@ -76,6 +91,21 @@ class ParserTests(TestCase):
     def test_parse_rejects_scientific_notation(self):
         parsed = parse_message("makan 1e5 bca")
         self.assertIsNone(parsed.amount)
+
+    def test_parse_investment_buy_lot(self):
+        parsed = parse_message("buy bbca 10 lot 10000 ajaib")
+        self.assertEqual(parsed.action, "investment_buy")
+        self.assertEqual(parsed.instrument_symbol, "BBCA")
+        self.assertEqual(parsed.investment_quantity, Decimal("10.00"))
+        self.assertEqual(parsed.investment_unit, "lot")
+        self.assertEqual(parsed.investment_price, Decimal("10000.00"))
+        self.assertEqual(parsed.investment_account_hint, "ajaib")
+
+    def test_parse_investment_price(self):
+        parsed = parse_message("price bbca 10500")
+        self.assertEqual(parsed.action, "investment_price")
+        self.assertEqual(parsed.instrument_symbol, "BBCA")
+        self.assertEqual(parsed.investment_price, Decimal("10500.00"))
 
 
 class FinanceServiceTests(TestCase):
@@ -229,6 +259,161 @@ class CurrencyConversionTests(TestCase):
         response = self.client.get(reverse("finance:currency"))
         self.assertEqual(response.status_code, 302)
         self.assertIn("/accounts/login/", response["Location"])
+
+
+class InvestmentPortfolioTests(TestCase):
+    def setUp(self):
+        SeedCommand().handle()
+        self.user = User.objects.create_user(username="tester", password="secret")
+        self.bca = Account.objects.get(name="BCA")
+        self.salary = Category.objects.get(name="Salary")
+        self.instrument = Instrument.objects.create(
+            symbol="BBCA",
+            provider_symbol="BBCA.JK",
+            name="Bank Central Asia",
+            market=Instrument.Market.IDX,
+            currency="IDR",
+            asset_class=Instrument.AssetClass.STOCK_ID,
+            lot_size=Decimal("100"),
+        )
+        self.investment_account = InvestmentAccount.objects.create(name="Ajaib", platform="Ajaib")
+
+    def test_buy_lot_and_price_gain(self):
+        record_investment_transaction(
+            kind=InvestmentTransaction.Kind.BUY,
+            instrument=self.instrument,
+            account=self.investment_account,
+            quantity=10,
+            unit="lot",
+            price=1000,
+        )
+        manual_price(self.instrument, 1100)
+        summary = portfolio_summary()
+        row = summary["positions"][0]
+        self.assertEqual(row["quantity"], Decimal("1000.0000"))
+        self.assertEqual(row["cost_basis"], Decimal("1000000.00"))
+        self.assertEqual(row["market_value_idr"], Decimal("1100000.00"))
+        self.assertEqual(row["unrealized_gain"], Decimal("100000.00"))
+
+    def test_partial_sell_realized_gain_and_remaining_average_cost(self):
+        record_investment_transaction(
+            kind=InvestmentTransaction.Kind.BUY,
+            instrument=self.instrument,
+            account=self.investment_account,
+            quantity=10,
+            unit="lot",
+            price=1000,
+        )
+        record_investment_transaction(
+            kind=InvestmentTransaction.Kind.SELL,
+            instrument=self.instrument,
+            account=self.investment_account,
+            quantity=2,
+            unit="lot",
+            price=1200,
+        )
+        manual_price(self.instrument, 1200)
+        row = portfolio_summary()["positions"][0]
+        self.assertEqual(row["quantity"], Decimal("800.0000"))
+        self.assertEqual(row["cost_basis"], Decimal("800000.00"))
+        self.assertEqual(row["realized_gain"], Decimal("40000.00"))
+        self.assertEqual(row["average_cost"], Decimal("1000.00"))
+
+    def test_dividend_adds_income_without_quantity_change(self):
+        record_investment_transaction(
+            kind=InvestmentTransaction.Kind.BUY,
+            instrument=self.instrument,
+            account=self.investment_account,
+            quantity=10,
+            unit="lot",
+            price=1000,
+        )
+        record_investment_transaction(
+            kind=InvestmentTransaction.Kind.DIVIDEND,
+            instrument=self.instrument,
+            account=self.investment_account,
+            cash_amount=150000,
+        )
+        row = portfolio_summary()["positions"][0]
+        self.assertEqual(row["quantity"], Decimal("1000.0000"))
+        self.assertEqual(row["dividend_income"], Decimal("150000.00"))
+
+    @patch("finance.market_data.urlopen")
+    def test_alpha_vantage_price_success_stores_snapshot(self, mocked_urlopen):
+        mocked_urlopen.return_value = FakeRateResponse(
+            {
+                "Global Quote": {
+                    "01. symbol": "BBCA.JK",
+                    "05. price": "1100.00",
+                }
+            }
+        )
+        with self.settings(ALPHA_VANTAGE_API_KEY="demo"):
+            result = refresh_price(self.instrument, provider="alpha")
+        self.assertFalse(result.is_stale)
+        self.assertEqual(PriceSnapshot.objects.filter(instrument=self.instrument).count(), 1)
+        self.assertEqual(result.snapshot.price, Decimal("1100.0000"))
+
+    @patch("finance.market_data.urlopen")
+    def test_price_failure_uses_cached_snapshot_and_marks_stale(self, mocked_urlopen):
+        mocked_urlopen.side_effect = URLError("offline")
+        snapshot = manual_price(self.instrument, 1000)
+        with self.settings(ALPHA_VANTAGE_API_KEY="demo"):
+            result = refresh_price(self.instrument, provider="alpha")
+        snapshot.refresh_from_db()
+        self.assertTrue(result.is_stale)
+        self.assertTrue(snapshot.is_stale)
+        self.assertEqual(result.snapshot.price, Decimal("1000.0000"))
+
+    @patch("finance.market_data.urlopen")
+    def test_price_failure_without_cache_raises(self, mocked_urlopen):
+        mocked_urlopen.side_effect = URLError("offline")
+        with self.settings(ALPHA_VANTAGE_API_KEY="demo"):
+            with self.assertRaises(MarketDataUnavailable):
+                refresh_price(self.instrument, provider="alpha")
+
+    def test_fire_summary_and_investment_insights(self):
+        create_transaction(kind=Transaction.Kind.INCOME, amount=5000000, account=self.bca, category=self.salary)
+        FinancialFreedomProfile.objects.create(
+            annual_expense=Decimal("12000000.00"),
+            fire_multiplier=Decimal("25"),
+            target_monthly_contribution=Decimal("1000000.00"),
+            emergency_fund_months=Decimal("6"),
+        )
+        record_investment_transaction(
+            kind=InvestmentTransaction.Kind.BUY,
+            instrument=self.instrument,
+            account=self.investment_account,
+            quantity=10,
+            unit="lot",
+            price=1000,
+        )
+        manual_price(self.instrument, 1100)
+        summary = financial_freedom_summary()
+        self.assertEqual(summary["fire_number"], Decimal("300000000.00"))
+        self.assertGreater(summary["progress"], Decimal("0"))
+        insights = generate_investment_insights()
+        self.assertTrue(any(insight.type == "fire_gap" for insight in insights))
+
+    def test_investment_pages_require_login(self):
+        for name in ["finance:investments", "finance:investment_instruments", "finance:investment_transactions", "finance:financial_freedom", "finance:watchlist"]:
+            response = self.client.get(reverse(name))
+            self.assertEqual(response.status_code, 302)
+            self.assertIn("/accounts/login/", response["Location"])
+
+    def test_investment_pages_load_after_login(self):
+        self.client.force_login(self.user)
+        pages = [
+            ("finance:investments", "Investment Portfolio"),
+            ("finance:investment_instruments", "Investment Instruments"),
+            ("finance:investment_transactions", "Investment Transactions"),
+            ("finance:financial_freedom", "Financial Freedom"),
+            ("finance:watchlist", "Watchlist"),
+        ]
+        for name, marker in pages:
+            response = self.client.get(reverse(name))
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, marker)
 
 
 class RecommendationTests(TestCase):

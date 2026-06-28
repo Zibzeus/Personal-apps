@@ -2,11 +2,18 @@ from django.contrib import admin
 
 from .models import (
     Account,
+    AllocationTarget,
     Budget,
     Category,
     CurrencyConversionCheck,
     Debt,
     ExchangeRateSnapshot,
+    FinancialFreedomProfile,
+    Instrument,
+    InvestmentAccount,
+    InvestmentInsight,
+    InvestmentTransaction,
+    PriceSnapshot,
     Recommendation,
     RecurringRule,
     SavingsGoal,
@@ -45,3 +52,10 @@ admin.site.register(SavingsGoal)
 admin.site.register(Recommendation)
 admin.site.register(ExchangeRateSnapshot)
 admin.site.register(CurrencyConversionCheck)
+admin.site.register(Instrument)
+admin.site.register(InvestmentAccount)
+admin.site.register(InvestmentTransaction)
+admin.site.register(PriceSnapshot)
+admin.site.register(AllocationTarget)
+admin.site.register(FinancialFreedomProfile)
+admin.site.register(InvestmentInsight)

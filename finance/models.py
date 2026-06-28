@@ -23,6 +23,61 @@ class Account(models.Model):
         return self.name
 
 
+class Instrument(models.Model):
+    class Market(models.TextChoices):
+        IDX = "IDX", "Indonesia"
+        US = "US", "United States"
+        GLOBAL = "GLOBAL", "Global"
+        CRYPTO = "CRYPTO", "Crypto"
+        OTHER = "OTHER", "Other"
+
+    class AssetClass(models.TextChoices):
+        STOCK_ID = "stock_id", "Indonesia Stock"
+        STOCK_US = "stock_us", "US Stock"
+        ETF = "etf", "ETF"
+        MUTUAL_FUND = "mutual_fund", "Mutual Fund"
+        CRYPTO = "crypto", "Crypto"
+        BOND = "bond", "Bond"
+        CASH_EQUIVALENT = "cash_equivalent", "Cash Equivalent"
+        OTHER = "other", "Other"
+
+    symbol = models.CharField(max_length=24)
+    provider_symbol = models.CharField(max_length=40, blank=True)
+    name = models.CharField(max_length=120, blank=True)
+    market = models.CharField(max_length=20, choices=Market.choices, default=Market.IDX)
+    currency = models.CharField(max_length=3, default="IDR")
+    asset_class = models.CharField(max_length=30, choices=AssetClass.choices, default=AssetClass.STOCK_ID)
+    lot_size = models.DecimalField(max_digits=12, decimal_places=4, default=100)
+    is_active = models.BooleanField(default=True)
+    is_watchlisted = models.BooleanField(default=False)
+    watch_note = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["market", "symbol"]
+        constraints = [
+            models.UniqueConstraint(fields=["market", "symbol"], name="unique_instrument_market_symbol")
+        ]
+
+    def __str__(self):
+        return f"{self.symbol} ({self.market})"
+
+
+class InvestmentAccount(models.Model):
+    name = models.CharField(max_length=80, unique=True)
+    platform = models.CharField(max_length=80, blank=True)
+    currency = models.CharField(max_length=3, default="IDR")
+    linked_cash_account = models.ForeignKey(Account, on_delete=models.SET_NULL, null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
 class Category(models.Model):
     class Type(models.TextChoices):
         INCOME = "income", "Income"
@@ -282,3 +337,125 @@ class CurrencyConversionCheck(models.Model):
 
     def __str__(self):
         return f"{self.source_amount} {self.source_currency} = {self.converted_idr_amount} IDR"
+
+
+class InvestmentTransaction(models.Model):
+    class Kind(models.TextChoices):
+        BUY = "buy", "Buy"
+        SELL = "sell", "Sell"
+        DIVIDEND = "dividend", "Dividend"
+        FEE = "fee", "Fee"
+        SPLIT = "split", "Split"
+
+    class Status(models.TextChoices):
+        CONFIRMED = "confirmed", "Confirmed"
+        DELETED = "deleted", "Deleted"
+
+    date = models.DateField(default=timezone.localdate)
+    kind = models.CharField(max_length=20, choices=Kind.choices)
+    account = models.ForeignKey(InvestmentAccount, on_delete=models.PROTECT, related_name="investment_transactions")
+    instrument = models.ForeignKey(Instrument, on_delete=models.PROTECT, related_name="investment_transactions")
+    quantity = models.DecimalField(max_digits=20, decimal_places=4, default=0)
+    price = models.DecimalField(max_digits=20, decimal_places=4, default=0)
+    fee_amount = models.DecimalField(max_digits=20, decimal_places=2, default=0)
+    cash_amount = models.DecimalField(max_digits=20, decimal_places=2, default=0)
+    currency = models.CharField(max_length=3, default="IDR")
+    note = models.CharField(max_length=255, blank=True)
+    source = models.CharField(max_length=20, choices=Transaction.Source.choices, default=Transaction.Source.WEB)
+    source_user_id = models.CharField(max_length=80, blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.CONFIRMED)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-date", "-created_at"]
+        indexes = [
+            models.Index(fields=["date", "kind", "status"]),
+            models.Index(fields=["instrument", "status"]),
+        ]
+
+    def __str__(self):
+        return f"{self.date} {self.kind} {self.instrument.symbol}"
+
+
+class PriceSnapshot(models.Model):
+    instrument = models.ForeignKey(Instrument, on_delete=models.CASCADE, related_name="price_snapshots")
+    price = models.DecimalField(max_digits=20, decimal_places=4)
+    currency = models.CharField(max_length=3, default="IDR")
+    provider = models.CharField(max_length=80, default="Manual")
+    fetched_at = models.DateTimeField(default=timezone.now)
+    is_stale = models.BooleanField(default=False)
+    raw_response = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["-fetched_at"]
+        indexes = [
+            models.Index(fields=["instrument", "-fetched_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.instrument.symbol} {self.price} {self.currency}"
+
+
+class AllocationTarget(models.Model):
+    asset_class = models.CharField(max_length=30, choices=Instrument.AssetClass.choices, unique=True)
+    target_percent = models.DecimalField(max_digits=5, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["asset_class"]
+
+    def __str__(self):
+        return f"{self.get_asset_class_display()} {self.target_percent}%"
+
+
+class FinancialFreedomProfile(models.Model):
+    class RiskProfile(models.TextChoices):
+        CONSERVATIVE = "conservative", "Conservative"
+        BALANCED = "balanced", "Balanced"
+        AGGRESSIVE = "aggressive", "Aggressive"
+
+    name = models.CharField(max_length=80, default="Default", unique=True)
+    annual_expense = models.DecimalField(max_digits=20, decimal_places=2, default=0)
+    fire_multiplier = models.DecimalField(max_digits=6, decimal_places=2, default=25)
+    target_monthly_contribution = models.DecimalField(max_digits=20, decimal_places=2, default=0)
+    emergency_fund_months = models.DecimalField(max_digits=5, decimal_places=2, default=6)
+    risk_profile = models.CharField(max_length=20, choices=RiskProfile.choices, default=RiskProfile.BALANCED)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class InvestmentInsight(models.Model):
+    class Severity(models.TextChoices):
+        INFO = "info", "Info"
+        WARNING = "warning", "Warning"
+        CRITICAL = "critical", "Critical"
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        IGNORED = "ignored", "Ignored"
+        DONE = "done", "Done"
+
+    fingerprint = models.CharField(max_length=160, unique=True)
+    type = models.CharField(max_length=60)
+    severity = models.CharField(max_length=20, choices=Severity.choices, default=Severity.INFO)
+    title = models.CharField(max_length=160)
+    reason = models.TextField()
+    estimated_amount = models.DecimalField(max_digits=20, decimal_places=2, default=0)
+    action_type = models.CharField(max_length=80, blank=True)
+    related_model = models.CharField(max_length=80, blank=True)
+    related_object_id = models.PositiveIntegerField(null=True, blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["status", "-severity", "-estimated_amount", "title"]
+
+    def __str__(self):
+        return self.title

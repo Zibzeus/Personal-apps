@@ -14,6 +14,18 @@ def idr(value):
 
 
 @register.filter
+def money_currency(value, currency="IDR"):
+    currency = (currency or "IDR").upper()
+    if currency == "IDR":
+        return format_idr(value)
+    try:
+        number = Decimal(value or 0)
+    except Exception:
+        number = Decimal("0")
+    return f"{currency} {number:,.2f}"
+
+
+@register.filter
 def pct(value):
     try:
         number = Decimal(value or 0) * Decimal("100")
