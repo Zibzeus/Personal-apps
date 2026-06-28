@@ -7,6 +7,13 @@ app_name = "finance"
 
 urlpatterns = [
     path("", views.dashboard, name="dashboard"),
+    path("coach/", views.coach, name="coach"),
+    path("monthly-audit/", views.monthly_audit, name="monthly_audit"),
+    path("subscriptions/", views.subscriptions, name="subscriptions"),
+    path("subscriptions/candidates/<int:pk>/", views.recurring_candidate_action, name="recurring_candidate_action"),
+    path("subscriptions/<int:pk>/review/", views.subscription_review, name="subscription_review"),
+    path("forecast/", views.forecast, name="forecast"),
+    path("goals/", views.financial_goals, name="financial_goals"),
     path("accounts/", views.accounts, name="accounts"),
     path("categories/", views.categories, name="categories"),
     path("transactions/", views.transactions, name="transactions"),

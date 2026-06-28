@@ -9,12 +9,15 @@ from .models import (
     Debt,
     ExchangeRateSnapshot,
     FinancialFreedomProfile,
+    FinancialGoal,
     Instrument,
     InvestmentAccount,
     InvestmentInsight,
     InvestmentTransaction,
+    MonthlyAudit,
     PriceSnapshot,
     Recommendation,
+    RecurringCandidate,
     RecurringRule,
     SavingsGoal,
     Transaction,
@@ -59,3 +62,6 @@ admin.site.register(PriceSnapshot)
 admin.site.register(AllocationTarget)
 admin.site.register(FinancialFreedomProfile)
 admin.site.register(InvestmentInsight)
+admin.site.register(MonthlyAudit)
+admin.site.register(RecurringCandidate)
+admin.site.register(FinancialGoal)

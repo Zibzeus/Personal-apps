@@ -21,6 +21,7 @@ from .forms import (
     CurrencyConversionForm,
     DebtForm,
     DebtRepaymentForm,
+    FinancialGoalForm,
     FinancialFreedomProfileForm,
     InstrumentForm,
     InvestmentAccountForm,
@@ -40,17 +41,34 @@ from .models import (
     Category,
     CurrencyConversionCheck,
     Debt,
+    FinancialGoal,
     FinancialFreedomProfile,
     Instrument,
     InvestmentAccount,
     InvestmentInsight,
     InvestmentTransaction,
+    MonthlyAudit,
     Recommendation,
     PriceSnapshot,
+    RecurringCandidate,
     RecurringRule,
     SavingsGoal,
     Transaction,
     Transfer,
+)
+from .coach import (
+    close_monthly_audit,
+    coach_overview,
+    confirm_recurring_candidate,
+    detect_recurring_candidates,
+    forecast_cashflow,
+    generate_monthly_audit,
+    goal_rows,
+    ignore_recurring_candidate,
+    mark_subscription_reviewed,
+    recalculate_monthly_audit,
+    reopen_monthly_audit,
+    subscription_rows,
 )
 from .investments import (
     MarketDataUnavailable,
@@ -111,6 +129,98 @@ def dashboard(request):
         "charts_json": json.dumps(charts, default=decimal_json),
     }
     return render(request, "finance/dashboard.html", context)
+
+
+def coach(request):
+    overview = coach_overview()
+    forecast = overview["forecast"]
+    charts = {"forecast": forecast["daily"]}
+    return render(
+        request,
+        "finance/coach.html",
+        {
+            **overview,
+            "charts_json": json.dumps(charts, default=decimal_json),
+        },
+    )
+
+
+def monthly_audit(request):
+    month = first_day()
+    if request.method == "POST":
+        action = request.POST.get("action")
+        if action == "close":
+            close_monthly_audit(month)
+            messages.success(request, "Monthly audit closed.")
+        elif action == "reopen":
+            reopen_monthly_audit(month)
+            messages.success(request, "Monthly audit reopened.")
+        elif action == "recalculate":
+            recalculate_monthly_audit(month)
+            messages.success(request, "Monthly audit recalculated.")
+        elif action == "save_notes":
+            audit = generate_monthly_audit(month)
+            audit.notes = request.POST.get("notes", "")
+            audit.save(update_fields=["notes", "updated_at"])
+            messages.success(request, "Audit notes saved.")
+        return redirect("finance:monthly_audit")
+    audit = generate_monthly_audit(month)
+    return render(
+        request,
+        "finance/monthly_audit.html",
+        {
+            "audit": audit,
+            "month": month,
+        },
+    )
+
+
+def subscriptions(request):
+    rows = subscription_rows()
+    return render(
+        request,
+        "finance/subscriptions.html",
+        {
+            "confirmed": rows["confirmed"],
+            "candidates": rows["candidates"],
+        },
+    )
+
+
+def recurring_candidate_action(request, pk):
+    if request.method != "POST":
+        return redirect("finance:subscriptions")
+    candidate = get_object_or_404(RecurringCandidate, pk=pk)
+    action = request.POST.get("action")
+    if action == "confirm":
+        confirm_recurring_candidate(candidate)
+        messages.success(request, "Recurring candidate confirmed as subscription.")
+    elif action == "ignore":
+        ignore_recurring_candidate(candidate)
+        messages.success(request, "Recurring candidate ignored.")
+    return redirect(request.META.get("HTTP_REFERER") or "finance:subscriptions")
+
+
+def subscription_review(request, pk):
+    if request.method != "POST":
+        return redirect("finance:subscriptions")
+    rule = get_object_or_404(RecurringRule, pk=pk)
+    mark_subscription_reviewed(rule, request.POST.get("review_note", ""))
+    messages.success(request, "Subscription marked as reviewed.")
+    return redirect(request.META.get("HTTP_REFERER") or "finance:subscriptions")
+
+
+def forecast(request):
+    data = forecast_cashflow(90)
+    charts = {"forecast": data["daily"]}
+    return render(
+        request,
+        "finance/forecast.html",
+        {
+            "forecast": data,
+            "charts_json": json.dumps(charts, default=decimal_json),
+        },
+    )
 
 
 def _decimal_text(value, places=4):
@@ -559,7 +669,19 @@ def recurring(request):
         title="Recurring",
         list_url="finance:recurring",
         rows_builder=lambda qs: [
-            {"object": obj, "cells": [obj.name, obj.get_kind_display(), obj.account.name, obj.amount, obj.next_due, "Active" if obj.is_active else "Inactive"]}
+            {
+                "object": obj,
+                "cells": [
+                    obj.name,
+                    obj.get_kind_display(),
+                    obj.account.name,
+                    obj.amount,
+                    obj.next_due,
+                    "Subscription" if obj.is_subscription else "Recurring",
+                    obj.last_reviewed_at.date() if obj.last_reviewed_at else "-",
+                    "Active" if obj.is_active else "Inactive",
+                ],
+            }
             for obj in qs
         ],
     )
@@ -574,6 +696,32 @@ def savings_goals(request):
         list_url="finance:savings",
         rows_builder=lambda qs: [
             {"object": obj, "cells": [obj.name, obj.current_amount, obj.target_amount, obj.target_date or "-", "Active" if obj.is_active else "Inactive"]}
+            for obj in qs
+        ],
+    )
+
+
+def financial_goals(request):
+    return _generic_manage(
+        request,
+        model=FinancialGoal,
+        form_class=FinancialGoalForm,
+        title="Financial Goals",
+        list_url="finance:financial_goals",
+        rows_builder=lambda qs: [
+            {
+                "object": obj,
+                "cells": [
+                    obj.name,
+                    obj.get_type_display(),
+                    obj.priority,
+                    obj.current_amount,
+                    obj.target_amount,
+                    obj.monthly_target,
+                    obj.target_date or "-",
+                    "Active" if obj.is_active else "Inactive",
+                ],
+            }
             for obj in qs
         ],
     )
@@ -622,7 +770,7 @@ def recommendation_action(request, pk):
         rec.status = Recommendation.Status.DONE
         rec.save(update_fields=["status", "updated_at"])
         messages.success(request, "Recurring item recorded.")
-    return redirect("finance:dashboard")
+    return redirect(request.POST.get("next") or request.META.get("HTTP_REFERER") or "finance:dashboard")
 
 
 def export_csv(request):

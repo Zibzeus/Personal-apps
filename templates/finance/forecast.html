@@ -1,0 +1,75 @@
+{% extends "finance/base.html" %}
+{% load finance_extras %}
+
+{% block content %}
+<section class="page-head dashboard-head">
+  <div>
+    <p class="eyebrow">Cashflow forecast</p>
+    <h1>90-Day Forecast</h1>
+    <p class="lead">Projection from current balance, recurring income/expense, subscriptions, debt due, budget reserve, and top-priority goals.</p>
+  </div>
+  <div class="head-actions">
+    <a class="button" href="{% url 'finance:coach' %}">Coach</a>
+    <a class="button ghost" href="{% url 'finance:recurring' %}">Recurring</a>
+  </div>
+</section>
+
+<section class="kpi-grid">
+  <div class="metric-card primary">
+    <span class="metric-label">Start Balance</span>
+    <strong>{{ forecast.start_balance|idr }}</strong>
+    <small>Current total cash</small>
+  </div>
+  {% for checkpoint in forecast.checkpoints %}
+    <div class="metric-card">
+      <span class="metric-label">{{ checkpoint.days }} Days</span>
+      <strong>{{ checkpoint.balance|idr }}</strong>
+      <small>Projected balance</small>
+    </div>
+  {% endfor %}
+</section>
+
+{% if forecast.low_balance_warning %}
+  <section class="panel warning-panel">
+    <div class="panel-head compact">
+      <h2>Low Balance Warning</h2>
+      <span class="pill warning">{{ forecast.min_balance|idr }}</span>
+    </div>
+    <p class="provider-note">Projected balance falls below {{ forecast.low_balance_threshold|idr }} on {{ forecast.min_balance_date|date:"d M Y" }}. Review subscriptions, recurring expense, and goal contribution timing.</p>
+  </section>
+{% endif %}
+
+<section class="chart-grid">
+  <div class="panel chart-panel">
+    <div class="panel-head compact"><h2>Projected Balance</h2><span>Daily 90-day trend</span></div>
+    <canvas id="forecastChart" height="260"></canvas>
+  </div>
+  <div class="panel">
+    <div class="panel-head compact"><h2>Upcoming Forecast Events</h2><span>First 80 events</span></div>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Date</th><th>Type</th><th>Label</th><th>Amount</th></tr></thead>
+        <tbody>
+          {% for event in forecast.events %}
+            <tr>
+              <td>{{ event.date }}</td>
+              <td><span class="type-pill adjustment">{{ event.type }}</span></td>
+              <td>{{ event.label }}</td>
+              <td class="amount-cell">{{ event.amount|idr }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="4"><div class="empty-state compact">No forecast events yet.</div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{{ charts_json|json_script:"forecast-chart-data" }}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  window.MoneyManagerCharts.renderForecast(JSON.parse(document.getElementById("forecast-chart-data").textContent));
+</script>
+{% endblock %}

@@ -11,6 +11,7 @@ from .models import (
     Budget,
     Category,
     Debt,
+    FinancialGoal,
     FinancialFreedomProfile,
     Instrument,
     InvestmentAccount,
@@ -347,10 +348,31 @@ class RecurringRuleForm(BaseStyledForm):
             "interval",
             "next_due",
             "prompt_before_post",
+            "is_subscription",
+            "merchant_name",
+            "review_note",
             "note",
             "is_active",
         ]
         widgets = {"next_due": DateInput()}
+
+
+class FinancialGoalForm(BaseStyledForm):
+    class Meta:
+        model = FinancialGoal
+        fields = [
+            "name",
+            "type",
+            "target_amount",
+            "current_amount",
+            "monthly_target",
+            "target_date",
+            "priority",
+            "linked_savings_goal",
+            "linked_debt",
+            "is_active",
+        ]
+        widgets = {"target_date": DateInput()}
 
 
 class SavingsGoalForm(BaseStyledForm):

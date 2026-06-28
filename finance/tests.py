@@ -20,24 +20,39 @@ from .models import (
     CurrencyConversionCheck,
     Debt,
     ExchangeRateSnapshot,
+    FinancialGoal,
     FinancialFreedomProfile,
     Instrument,
     InvestmentAccount,
     InvestmentTransaction,
+    MonthlyAudit,
     PriceSnapshot,
     Recommendation,
+    RecurringCandidate,
+    RecurringRule,
     Transaction,
 )
 from .parser import parse_message
 from .recommendations import generate_recommendations
 from .services import (
     account_balances,
+    add_month,
     create_debt,
     create_transaction,
     create_transfer,
     first_day,
     monthly_summary,
     repay_debt,
+)
+from .coach import (
+    close_monthly_audit,
+    confirm_recurring_candidate,
+    detect_recurring_candidates,
+    forecast_cashflow,
+    generate_monthly_audit,
+    goal_rows,
+    recalculate_monthly_audit,
+    reopen_monthly_audit,
 )
 from .investments import (
     MarketDataUnavailable,
@@ -442,6 +457,142 @@ class RecommendationTests(TestCase):
         )
         recs = generate_recommendations()
         self.assertTrue(any(rec.type == "debt_due" for rec in recs))
+
+
+class FinancialCoachTests(TestCase):
+    def setUp(self):
+        SeedCommand().handle()
+        self.user = User.objects.create_user(username="tester", password="secret")
+        self.bca = Account.objects.get(name="BCA")
+        self.salary = Category.objects.get(name="Salary")
+        self.shopping = Category.objects.get(name="Shopping")
+        self.subscription = Category.objects.get(name="Subscription")
+
+    def test_recurring_candidate_detection_and_confirmation(self):
+        current_month = first_day()
+        previous_month = first_day(current_month - timedelta(days=20))
+        two_months_ago = first_day(previous_month - timedelta(days=20))
+        create_transaction(
+            kind=Transaction.Kind.EXPENSE,
+            amount=59000,
+            account=self.bca,
+            category=self.subscription,
+            merchant="Spotify",
+            note="Spotify Premium",
+            tx_date=two_months_ago + timedelta(days=5),
+        )
+        create_transaction(
+            kind=Transaction.Kind.EXPENSE,
+            amount=59000,
+            account=self.bca,
+            category=self.subscription,
+            merchant="Spotify",
+            note="Spotify Premium",
+            tx_date=previous_month + timedelta(days=5),
+        )
+
+        candidates = detect_recurring_candidates()
+        candidate = next(item for item in candidates if item.merchant == "Spotify")
+        self.assertEqual(candidate.status, RecurringCandidate.Status.SUGGESTED)
+        self.assertEqual(candidate.cadence, RecurringCandidate.Cadence.MONTHLY)
+
+        rule = confirm_recurring_candidate(candidate)
+        candidate.refresh_from_db()
+        self.assertTrue(rule.is_subscription)
+        self.assertEqual(candidate.status, RecurringCandidate.Status.CONFIRMED)
+        self.assertEqual(candidate.matched_rule, rule)
+
+    def test_monthly_audit_close_reopen_and_action_goal_routing(self):
+        FinancialGoal.objects.create(
+            name="Dana Darurat",
+            type=FinancialGoal.Type.EMERGENCY_FUND,
+            target_amount=Decimal("3000000.00"),
+            current_amount=Decimal("500000.00"),
+            monthly_target=Decimal("500000.00"),
+            priority=1,
+        )
+        create_transaction(kind=Transaction.Kind.INCOME, amount=5000000, account=self.bca, category=self.salary)
+        create_transaction(kind=Transaction.Kind.EXPENSE, amount=1000000, account=self.bca, category=self.shopping, merchant="Tokopedia")
+
+        audit = generate_monthly_audit()
+        self.assertEqual(MonthlyAudit.objects.count(), 1)
+        self.assertEqual(audit.income, Decimal("5000000.00"))
+        self.assertTrue(any(item["type"] == "discretionary" for item in audit.top_leaks))
+        self.assertTrue(any(item.get("goal_name") == "Dana Darurat" for item in audit.action_plan))
+
+        closed = close_monthly_audit()
+        self.assertEqual(closed.status, MonthlyAudit.Status.CLOSED)
+        reopened = reopen_monthly_audit()
+        self.assertEqual(reopened.status, MonthlyAudit.Status.DRAFT)
+        recalculated = recalculate_monthly_audit()
+        self.assertEqual(recalculated.month, first_day())
+
+    def test_goal_rows_calculate_monthly_required(self):
+        FinancialGoal.objects.create(
+            name="Laptop",
+            target_amount=Decimal("600000.00"),
+            current_amount=Decimal("0.00"),
+            target_date=timezone.localdate() + timedelta(days=90),
+            priority=1,
+        )
+        row = goal_rows()[0]
+        self.assertEqual(row["monthly_required"], Decimal("200000.00"))
+        self.assertEqual(row["progress"], Decimal("0"))
+
+    def test_forecast_uses_recurring_debt_goal_and_does_not_create_transactions(self):
+        self.bca.opening_balance = Decimal("100000.00")
+        self.bca.save(update_fields=["opening_balance"])
+        RecurringRule.objects.create(
+            name="Netflix",
+            kind=RecurringRule.Kind.EXPENSE,
+            account=self.bca,
+            category=self.subscription,
+            amount=Decimal("150000.00"),
+            interval=RecurringRule.Interval.MONTHLY,
+            next_due=timezone.localdate() + timedelta(days=1),
+            is_subscription=True,
+        )
+        Debt.objects.create(
+            direction=Debt.Direction.PAYABLE,
+            counterparty="Budi",
+            principal_amount=Decimal("50000.00"),
+            current_balance=Decimal("50000.00"),
+            due_date=timezone.localdate() + timedelta(days=2),
+        )
+        FinancialGoal.objects.create(
+            name="Dana Darurat",
+            target_amount=Decimal("1000000.00"),
+            current_amount=Decimal("0.00"),
+            monthly_target=Decimal("100000.00"),
+            priority=1,
+        )
+        before = Transaction.objects.count()
+        data = forecast_cashflow(90)
+        self.assertEqual(Transaction.objects.count(), before)
+        self.assertTrue(data["low_balance_warning"])
+        event_types = {item["type"] for item in data["events"]}
+        self.assertIn("subscription", event_types)
+        self.assertIn("debt_payment", event_types)
+        self.assertIn("goal_contribution", event_types)
+
+    def test_coach_pages_require_login_and_load_after_login(self):
+        for name in ["finance:coach", "finance:monthly_audit", "finance:subscriptions", "finance:forecast", "finance:financial_goals"]:
+            response = self.client.get(reverse(name))
+            self.assertEqual(response.status_code, 302)
+            self.assertIn("/accounts/login/", response["Location"])
+
+        self.client.force_login(self.user)
+        pages = [
+            ("finance:coach", "Leak Audit"),
+            ("finance:monthly_audit", "Monthly audit"),
+            ("finance:subscriptions", "Subscriptions"),
+            ("finance:forecast", "90-Day Forecast"),
+            ("finance:financial_goals", "Financial Goals"),
+        ]
+        for name, marker in pages:
+            response = self.client.get(reverse(name))
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, marker)
 
 
 class DashboardTests(TestCase):

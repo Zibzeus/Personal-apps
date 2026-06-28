@@ -12,6 +12,11 @@ Aplikasi money manager pribadi yang berjalan di laptop Windows. Input utama lewa
 - Kurs check di `/currency/` untuk konversi mata uang asing ke Rupiah, dengan history tersimpan untuk audit/forecasting.
 - Investment portfolio di `/investments/` dengan holdings, market value, cost basis, gain/loss, allocation, watchlist, manual/API price cache.
 - Financial freedom/FIRE planner di `/financial-freedom/` dengan FIRE number, net worth, gap, runway, dan simulasi kontribusi bulanan.
+- Financial Coach di `/coach/` untuk monthly audit, bocor halus, action list, subscription candidates, goal routing, dan cashflow forecast.
+- Monthly audit di `/monthly-audit/` dengan close/reopen/recalculate dan tampilan print-friendly untuk Save as PDF dari browser.
+- Subscription center di `/subscriptions/` untuk confirmed subscription dan auto-detected recurring candidates.
+- Cashflow forecast di `/forecast/` untuk proyeksi saldo harian 90 hari dan checkpoint 30/60/90 hari.
+- Financial goals di `/goals/` untuk dana darurat, debt payoff, FIRE, dan target tabungan prioritas.
 - Live Rupiah formatting di form nominal, contoh `12000` otomatis tampil `12.000`.
 - Financial audit: over-budget, spending spike, discretionary saving opportunity, subscription review, duplikat transaksi, uncategorized, hutang jatuh tempo, dan saving rate gap.
 - Export CSV dan backup SQLite lokal.
@@ -104,6 +109,18 @@ DJANGO_CSRF_TRUSTED_ORIGINS=https://domain-kamu.example
 - `price bbca 10500`
 
 Semua input penting akan diminta konfirmasi sebelum masuk database.
+
+## Financial Coach
+
+Alur rekomendasi v1 bersifat review-first:
+
+1. Tambahkan transaksi dan recurring/subscription seperti biasa.
+2. Buat goal prioritas di `/goals/`, misalnya dana darurat atau debt payoff.
+3. Buka `/coach/` untuk melihat action list dan forecast.
+4. Buka `/monthly-audit/` untuk close bulan, recalculate jika ada koreksi, lalu print/save as PDF dari browser.
+5. Buka `/subscriptions/` untuk confirm atau ignore recurring candidates yang terdeteksi otomatis.
+
+Forecast tidak membuat transaksi baru. Forecast hanya simulasi dari saldo sekarang, recurring, subscription, debt due, budget reserve, dan target goal prioritas.
 
 ## Catatan
 

@@ -235,11 +235,18 @@
     });
   }
 
+  function renderForecast(data) {
+    lineChart("forecastChart", data.forecast || [], "balance", {
+      color: palette.amber,
+      label: "Projected balance",
+    });
+  }
+
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => setupRupiahInputs(document));
   } else {
     setupRupiahInputs(document);
   }
 
-  window.MoneyManagerCharts = { renderDashboard, renderInvestment, setupRupiahInputs };
+  window.MoneyManagerCharts = { renderDashboard, renderInvestment, renderForecast, setupRupiahInputs };
 })();

@@ -231,6 +231,10 @@ class RecurringRule(models.Model):
     interval = models.CharField(max_length=20, choices=Interval.choices, default=Interval.MONTHLY)
     next_due = models.DateField()
     prompt_before_post = models.BooleanField(default=True)
+    is_subscription = models.BooleanField(default=False)
+    merchant_name = models.CharField(max_length=120, blank=True)
+    last_reviewed_at = models.DateTimeField(null=True, blank=True)
+    review_note = models.CharField(max_length=255, blank=True)
     note = models.CharField(max_length=255, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -253,6 +257,102 @@ class SavingsGoal(models.Model):
 
     class Meta:
         ordering = ["-is_active", "target_date", "name"]
+
+    def __str__(self):
+        return self.name
+
+
+class MonthlyAudit(models.Model):
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        CLOSED = "closed", "Closed"
+
+    month = models.DateField(unique=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
+    income = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    expense = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    net = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    saving_rate = models.DecimalField(max_digits=8, decimal_places=4, default=0)
+    snapshot = models.JSONField(default=dict, blank=True)
+    top_leaks = models.JSONField(default=list, blank=True)
+    action_plan = models.JSONField(default=list, blank=True)
+    notes = models.TextField(blank=True)
+    closed_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-month"]
+
+    def __str__(self):
+        return f"{self.month:%Y-%m} audit"
+
+
+class RecurringCandidate(models.Model):
+    class Status(models.TextChoices):
+        SUGGESTED = "suggested", "Suggested"
+        CONFIRMED = "confirmed", "Confirmed"
+        IGNORED = "ignored", "Ignored"
+
+    class Cadence(models.TextChoices):
+        WEEKLY = "weekly", "Weekly"
+        MONTHLY = "monthly", "Monthly"
+        UNKNOWN = "unknown", "Unknown"
+
+    fingerprint = models.CharField(max_length=160, unique=True)
+    merchant = models.CharField(max_length=120)
+    note_pattern = models.CharField(max_length=160, blank=True)
+    account = models.ForeignKey(Account, on_delete=models.SET_NULL, null=True, blank=True)
+    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
+    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    cadence = models.CharField(max_length=20, choices=Cadence.choices, default=Cadence.UNKNOWN)
+    first_seen = models.DateField()
+    last_seen = models.DateField()
+    occurrence_count = models.PositiveSmallIntegerField(default=0)
+    confidence = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    related_transaction_ids = models.JSONField(default=list, blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.SUGGESTED)
+    matched_rule = models.ForeignKey(
+        RecurringRule,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="candidate_matches",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["status", "-confidence", "-last_seen"]
+
+    def __str__(self):
+        return f"{self.merchant} {self.amount}"
+
+
+class FinancialGoal(models.Model):
+    class Type(models.TextChoices):
+        EMERGENCY_FUND = "emergency_fund", "Emergency Fund"
+        SAVINGS = "savings", "Savings"
+        DEBT_PAYOFF = "debt_payoff", "Debt Payoff"
+        FIRE = "fire", "FIRE"
+        LARGE_PURCHASE = "large_purchase", "Large Purchase"
+        OTHER = "other", "Other"
+
+    name = models.CharField(max_length=120)
+    type = models.CharField(max_length=30, choices=Type.choices, default=Type.SAVINGS)
+    target_amount = models.DecimalField(max_digits=20, decimal_places=2)
+    current_amount = models.DecimalField(max_digits=20, decimal_places=2, default=0)
+    monthly_target = models.DecimalField(max_digits=20, decimal_places=2, default=0)
+    target_date = models.DateField(null=True, blank=True)
+    priority = models.PositiveSmallIntegerField(default=3)
+    linked_savings_goal = models.ForeignKey(SavingsGoal, on_delete=models.SET_NULL, null=True, blank=True)
+    linked_debt = models.ForeignKey(Debt, on_delete=models.SET_NULL, null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-is_active", "priority", "target_date", "name"]
 
     def __str__(self):
         return self.name

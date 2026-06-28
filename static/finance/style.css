@@ -136,6 +136,8 @@ textarea {
 .nav {
   display: grid;
   gap: 4px;
+  overflow-y: auto;
+  padding-right: 2px;
 }
 
 .nav a {
@@ -720,6 +722,16 @@ input[data-rupiah-input="true"] {
   margin-bottom: 0;
 }
 
+.warning-panel {
+  margin-bottom: 16px;
+  border-color: #fcd34d;
+  background: #fffbeb;
+}
+
+.print-only {
+  display: none;
+}
+
 .empty-state {
   border: 1px dashed #b8c4d4;
   border-radius: var(--radius);
@@ -906,5 +918,36 @@ input[data-rupiah-input="true"] {
 
   .detail-list dd {
     text-align: left;
+  }
+}
+
+@media print {
+  body {
+    background: #ffffff;
+  }
+
+  .sidebar,
+  .topbar,
+  .no-print,
+  .messages {
+    display: none !important;
+  }
+
+  .app-shell {
+    display: block;
+  }
+
+  .main {
+    padding: 0;
+  }
+
+  .panel,
+  .metric-card {
+    box-shadow: none;
+    break-inside: avoid;
+  }
+
+  .print-only {
+    display: block;
   }
 }

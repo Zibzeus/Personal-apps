@@ -1,0 +1,86 @@
+{% extends "finance/base.html" %}
+{% load finance_extras %}
+
+{% block content %}
+<section class="page-head dashboard-head">
+  <div>
+    <p class="eyebrow">Subscription leak center</p>
+    <h1>Subscriptions</h1>
+    <p class="lead">Review confirmed subscriptions and auto-detected recurring spending before it becomes silent leakage.</p>
+  </div>
+  <div class="head-actions">
+    <a class="button" href="{% url 'finance:recurring' %}">Manage Recurring</a>
+    <a class="button ghost" href="{% url 'finance:coach' %}">Coach</a>
+  </div>
+</section>
+
+<section class="grid two">
+  <div class="panel">
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">Confirmed</p>
+        <h2>Active Subscriptions</h2>
+      </div>
+      <span class="pill">{{ confirmed|length }} active</span>
+    </div>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Name</th><th>Amount</th><th>Due</th><th>Reviewed</th><th></th></tr></thead>
+        <tbody>
+          {% for rule in confirmed %}
+            <tr>
+              <td>{{ rule.name }}</td>
+              <td class="amount-cell">{{ rule.amount|idr }}</td>
+              <td>{{ rule.next_due }}</td>
+              <td>{% if rule.last_reviewed_at %}{{ rule.last_reviewed_at|date:"d M Y" }}{% else %}-{% endif %}</td>
+              <td>
+                <form method="post" action="{% url 'finance:subscription_review' rule.id %}" class="inline-actions">
+                  {% csrf_token %}
+                  <input class="field-input" name="review_note" placeholder="Review note">
+                  <button class="button small" type="submit">Mark Reviewed</button>
+                </form>
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="5"><div class="empty-state compact">Belum ada subscription confirmed.</div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">Auto-detected</p>
+        <h2>Recurring Candidates</h2>
+      </div>
+      <span class="pill warning">{{ candidates|length }} suggested</span>
+    </div>
+    <div class="recommendations">
+      {% for candidate in candidates %}
+        <article class="recommendation warning">
+          <div class="recommendation-top">
+            <span class="severity-badge">{{ candidate.confidence }}% confidence</span>
+            <strong class="saving-badge">{{ candidate.amount|idr }}</strong>
+          </div>
+          <div>
+            <h3>{{ candidate.merchant }}</h3>
+            <p>{{ candidate.occurrence_count }} transaksi sejak {{ candidate.first_seen }} sampai {{ candidate.last_seen }}. Cadence: {{ candidate.get_cadence_display }}.</p>
+          </div>
+          <form method="post" action="{% url 'finance:recurring_candidate_action' candidate.id %}" class="inline-actions">
+            {% csrf_token %}
+            <button class="button small" name="action" value="confirm">Confirm</button>
+            <button class="button small ghost" name="action" value="ignore">Ignore</button>
+          </form>
+        </article>
+      {% empty %}
+        <div class="empty-state">
+          <strong>No candidates</strong>
+          <p>Candidate muncul kalau ada transaksi berulang minimal dua bulan dengan merchant/note dan nominal yang sama.</p>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,190 @@
+{% extends "finance/base.html" %}
+{% load finance_extras %}
+
+{% block content %}
+<section class="page-head dashboard-head">
+  <div>
+    <p class="eyebrow">Financial coach</p>
+    <h1>Leak Audit & Action Plan</h1>
+    <p class="lead">Monthly audit, subscription leaks, goal routing, and 90-day cashflow projection in one place.</p>
+  </div>
+  <div class="head-actions">
+    <a class="button" href="{% url 'finance:monthly_audit' %}">Open Audit</a>
+    <a class="button ghost" href="{% url 'finance:forecast' %}">View Forecast</a>
+  </div>
+</section>
+
+<section class="kpi-grid">
+  <div class="metric-card primary">
+    <span class="metric-label">Audit Status</span>
+    <strong>{{ audit.get_status_display }}</strong>
+    <small>{{ audit.month|date:"F Y" }}</small>
+  </div>
+  <div class="metric-card">
+    <span class="metric-label">Potential Actions</span>
+    <strong>{{ audit.action_plan|length }}</strong>
+    <small>Review-first items</small>
+  </div>
+  <div class="metric-card">
+    <span class="metric-label">Projected Low</span>
+    <strong>{{ forecast.min_balance|idr }}</strong>
+    <small>{{ forecast.min_balance_date|date:"d M Y" }}</small>
+  </div>
+  <div class="metric-card">
+    <span class="metric-label">Active Goals</span>
+    <strong>{{ goals|length }}</strong>
+    <small>Prioritized saving targets</small>
+  </div>
+</section>
+
+<section class="dashboard-grid">
+  <div class="panel recommendations-panel">
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">Action list</p>
+        <h2>Next Best Actions</h2>
+      </div>
+      <a class="text-link" href="{% url 'finance:monthly_audit' %}">Report</a>
+    </div>
+    <div class="recommendations">
+      {% for action in audit.action_plan %}
+        <article class="recommendation {{ action.severity }}">
+          <div class="recommendation-top">
+            <span class="severity-badge">{{ action.severity|default:"info" }}</span>
+            {% if action.amount %}<strong class="saving-badge">{{ action.amount|idr }}</strong>{% endif %}
+          </div>
+          <div>
+            <h3>{{ action.title }}</h3>
+            <p>{{ action.reason }}</p>
+          </div>
+          {% if action.goal_name %}
+            <span class="pill">Goal: {{ action.goal_name }}</span>
+          {% endif %}
+          <div class="inline-actions">
+            {% if action.recommendation_id %}
+              <form method="post" action="{% url 'finance:recommendation_action' action.recommendation_id %}" class="inline-actions">
+                {% csrf_token %}
+                {% if action.action == "create_or_reduce_budget" %}
+                  <button class="button small" name="action" value="budget">Create Budget</button>
+                {% endif %}
+                <button class="button small ghost" name="action" value="done">Done</button>
+                <button class="button small ghost" name="action" value="ignored">Ignore</button>
+              </form>
+            {% elif action.related_model == "RecurringCandidate" %}
+              <form method="post" action="{% url 'finance:recurring_candidate_action' action.related_object_id %}" class="inline-actions">
+                {% csrf_token %}
+                <button class="button small" name="action" value="confirm">Confirm</button>
+                <button class="button small ghost" name="action" value="ignore">Ignore</button>
+              </form>
+            {% elif action.related_model == "RecurringRule" %}
+              <form method="post" action="{% url 'finance:subscription_review' action.related_object_id %}" class="inline-actions">
+                {% csrf_token %}
+                <button class="button small" type="submit">Mark Reviewed</button>
+              </form>
+            {% elif action.related_model == "Category" %}
+              <a class="button small ghost" href="{% url 'finance:budgets' %}?category={{ action.related_object_id }}">Review Budget</a>
+            {% endif %}
+          </div>
+        </article>
+      {% empty %}
+        <div class="empty-state">
+          <strong>No action yet</strong>
+          <p>Tambahkan transaksi, recurring, subscription, dan goal supaya coach bisa memberi action plan.</p>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="panel accounts-panel">
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">Forecast</p>
+        <h2>90-Day Cashflow</h2>
+      </div>
+      {% if forecast.low_balance_warning %}<span class="pill warning">Low balance</span>{% endif %}
+    </div>
+    <dl class="detail-list">
+      {% for checkpoint in forecast.checkpoints %}
+        <div><dt>{{ checkpoint.days }} days</dt><dd>{{ checkpoint.balance|idr }}</dd></div>
+      {% endfor %}
+    </dl>
+    <div class="stacked-action">
+      <a class="button ghost full" href="{% url 'finance:forecast' %}">Open Forecast</a>
+    </div>
+  </div>
+</section>
+
+<section class="chart-grid">
+  <div class="panel chart-panel">
+    <div class="panel-head compact"><h2>Projected Balance</h2><span>90 days</span></div>
+    <canvas id="forecastChart" height="220"></canvas>
+  </div>
+  <div class="panel">
+    <div class="panel-head compact"><h2>Subscription Candidates</h2><span>Auto-detected</span></div>
+    <div class="account-list">
+      {% for candidate in subscriptions.candidates|slice:":5" %}
+        <div class="account-item">
+          <span>
+            <strong>{{ candidate.merchant }}</strong>
+            <small>{{ candidate.occurrence_count }}x, {{ candidate.confidence }}% confidence</small>
+          </span>
+          <strong>{{ candidate.amount|idr }}</strong>
+        </div>
+      {% empty %}
+        <div class="empty-state compact">No subscription candidates yet.</div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="grid two">
+  <div class="panel">
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">Goals</p>
+        <h2>Top Priority Goals</h2>
+      </div>
+      <a class="text-link" href="{% url 'finance:financial_goals' %}">Manage</a>
+    </div>
+    {% for row in goals|slice:":6" %}
+      <div class="budget-row">
+        <div>
+          <strong>{{ row.goal.name }}</strong>
+          <span>{{ row.current|idr }} / {{ row.target|idr }}</span>
+        </div>
+        <div class="bar"><span style="width: {{ row.progress|progress }}%"></span></div>
+      </div>
+    {% empty %}
+      <div class="empty-state compact">Belum ada financial goal.</div>
+    {% endfor %}
+  </div>
+  <div class="panel">
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">Leaks</p>
+        <h2>Top Leak Findings</h2>
+      </div>
+    </div>
+    <div class="account-list">
+      {% for leak in audit.top_leaks|slice:":6" %}
+        <div class="account-item">
+          <span>
+            <strong>{{ leak.title }}</strong>
+            <small>{{ leak.type }}</small>
+          </span>
+          <strong>{{ leak.amount|idr }}</strong>
+        </div>
+      {% empty %}
+        <div class="empty-state compact">No leak finding yet.</div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{{ charts_json|json_script:"coach-chart-data" }}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  window.MoneyManagerCharts.renderForecast(JSON.parse(document.getElementById("coach-chart-data").textContent));
+</script>
+{% endblock %}

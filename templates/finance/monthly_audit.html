@@ -1,0 +1,147 @@
+{% extends "finance/base.html" %}
+{% load finance_extras %}
+
+{% block content %}
+<section class="page-head dashboard-head print-report-head">
+  <div>
+    <p class="eyebrow">Monthly audit</p>
+    <h1>{{ audit.month|date:"F Y" }} Report</h1>
+    <p class="lead">Snapshot audit untuk bocor halus, saving rate, top leaks, dan action plan bulan depan.</p>
+  </div>
+  <div class="head-actions no-print">
+    <form method="post" class="inline-actions">
+      {% csrf_token %}
+      {% if audit.status == "closed" %}
+        <button class="button ghost" name="action" value="reopen">Reopen</button>
+      {% else %}
+        <button class="button" name="action" value="close">Close Month</button>
+      {% endif %}
+      <button class="button ghost" name="action" value="recalculate">Recalculate</button>
+      <button class="button ghost" type="button" onclick="window.print()">Print</button>
+    </form>
+  </div>
+</section>
+
+<section class="kpi-grid">
+  <div class="metric-card primary">
+    <span class="metric-label">Status</span>
+    <strong>{{ audit.get_status_display }}</strong>
+    <small>{% if audit.closed_at %}Closed {{ audit.closed_at|date:"d M Y H:i" }}{% else %}Draft report{% endif %}</small>
+  </div>
+  <div class="metric-card">
+    <span class="metric-label">Income</span>
+    <strong>{{ audit.income|idr }}</strong>
+    <small>Confirmed income</small>
+  </div>
+  <div class="metric-card">
+    <span class="metric-label">Expense</span>
+    <strong>{{ audit.expense|idr }}</strong>
+    <small>Confirmed expense</small>
+  </div>
+  <div class="metric-card">
+    <span class="metric-label">Saving Rate</span>
+    <strong>{{ audit.saving_rate|pct }}</strong>
+    <small>Net {{ audit.net|idr }}</small>
+  </div>
+</section>
+
+<section class="dashboard-grid">
+  <div class="panel recommendations-panel">
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">Action plan</p>
+        <h2>Review-First Actions</h2>
+      </div>
+      <span class="pill">{{ audit.action_plan|length }} items</span>
+    </div>
+    <div class="recommendations">
+      {% for action in audit.action_plan %}
+        <article class="recommendation {{ action.severity }}">
+          <div class="recommendation-top">
+            <span class="severity-badge">{{ action.severity|default:"info" }}</span>
+            {% if action.amount %}<strong class="saving-badge">{{ action.amount|idr }}</strong>{% endif %}
+          </div>
+          <div>
+            <h3>{{ action.title }}</h3>
+            <p>{{ action.reason }}</p>
+          </div>
+          <div class="inline-actions no-print">
+            {% if action.recommendation_id %}
+              <form method="post" action="{% url 'finance:recommendation_action' action.recommendation_id %}" class="inline-actions">
+                {% csrf_token %}
+                {% if action.action == "create_or_reduce_budget" %}
+                  <button class="button small" name="action" value="budget">Create Budget</button>
+                {% endif %}
+                <button class="button small ghost" name="action" value="done">Done</button>
+                <button class="button small ghost" name="action" value="ignored">Ignore</button>
+              </form>
+            {% elif action.related_model == "RecurringCandidate" %}
+              <form method="post" action="{% url 'finance:recurring_candidate_action' action.related_object_id %}" class="inline-actions">
+                {% csrf_token %}
+                <button class="button small" name="action" value="confirm">Confirm</button>
+                <button class="button small ghost" name="action" value="ignore">Ignore</button>
+              </form>
+            {% elif action.related_model == "RecurringRule" %}
+              <form method="post" action="{% url 'finance:subscription_review' action.related_object_id %}" class="inline-actions">
+                {% csrf_token %}
+                <button class="button small" type="submit">Mark Reviewed</button>
+              </form>
+            {% endif %}
+          </div>
+        </article>
+      {% empty %}
+        <div class="empty-state compact">No action item yet.</div>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-head compact"><h2>Audit Notes</h2><span>Optional</span></div>
+    <form method="post" class="form-grid no-print">
+      {% csrf_token %}
+      <label class="field">
+        <span>Notes</span>
+        <textarea name="notes">{{ audit.notes }}</textarea>
+      </label>
+      <button class="button" name="action" value="save_notes">Save Notes</button>
+    </form>
+    {% if audit.notes %}
+      <div class="provider-note print-only">{{ audit.notes|linebreaksbr }}</div>
+    {% endif %}
+  </div>
+</section>
+
+<section class="grid two">
+  <div class="panel">
+    <div class="panel-head compact"><h2>Top Leak Findings</h2><span>Potential saving</span></div>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Finding</th><th>Type</th><th>Amount</th></tr></thead>
+        <tbody>
+          {% for leak in audit.top_leaks %}
+            <tr>
+              <td>{{ leak.title }}</td>
+              <td>{{ leak.type }}</td>
+              <td class="amount-cell">{{ leak.amount|idr }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="3"><div class="empty-state compact">No leak finding yet.</div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-head compact"><h2>Category Spending</h2><span>Snapshot</span></div>
+    {% for row in audit.snapshot.spending %}
+      <div class="budget-row">
+        <div>
+          <strong>{{ row.name }}</strong>
+          <span>{{ row.amount|idr }}</span>
+        </div>
+      </div>
+    {% empty %}
+      <div class="empty-state compact">No spending snapshot.</div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
