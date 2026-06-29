@@ -612,6 +612,7 @@ class DashboardTests(TestCase):
         self.assertContains(response, "Choose Your Workspace")
         self.assertContains(response, "Money Manager")
         self.assertContains(response, "Productivity")
+        self.assertContains(response, "Daily Journal")
 
     def test_dashboard_requires_login(self):
         response = self.client.get(reverse("finance:dashboard"))

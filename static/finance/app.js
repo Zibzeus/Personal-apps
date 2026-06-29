@@ -205,6 +205,122 @@
     ctx.fillText(options?.label || money(values[values.length - 1] || 0), frame.left, 15);
   }
 
+  function scoreFrame(ctx, width, height) {
+    const left = 34;
+    const right = width - 18;
+    const top = 22;
+    const bottom = height - 34;
+    ctx.strokeStyle = palette.grid;
+    ctx.lineWidth = 1;
+    ctx.fillStyle = palette.muted;
+    ctx.font = "11px system-ui, sans-serif";
+    for (let score = 1; score <= 5; score += 1) {
+      const y = bottom - ((score - 1) / 4) * (bottom - top);
+      ctx.beginPath();
+      ctx.moveTo(left, y);
+      ctx.lineTo(right, y);
+      ctx.stroke();
+      ctx.fillText(String(score), 10, y + 4);
+    }
+    return { left, right, top, bottom, width: right - left, height: bottom - top };
+  }
+
+  function scoreLineChart(id, rows, keys) {
+    const canvas = document.getElementById(id);
+    if (!canvas) return;
+    const { ctx, width, height } = setup(canvas);
+    if (!rows || !rows.length) {
+      emptyState(ctx, width, height, "No mood trend yet");
+      return;
+    }
+    const frame = scoreFrame(ctx, width, height);
+    const colors = { mood: "#9a5b31", energy: "#5d7d52", productivity: "#2563eb" };
+    legend(
+      ctx,
+      keys.map((key) => ({ label: key, color: colors[key] || palette.blue })),
+      width,
+    );
+    keys.forEach((key) => {
+      ctx.strokeStyle = colors[key] || palette.blue;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      rows.forEach((row, index) => {
+        const value = Math.max(1, Math.min(5, Number(row[key] || 1)));
+        const x = frame.left + (index * frame.width) / Math.max(1, rows.length - 1);
+        const y = frame.bottom - ((value - 1) / 4) * frame.height;
+        if (index === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+    });
+    rows.forEach((row, index) => {
+      if (index % Math.ceil(rows.length / 5) !== 0 && rows.length > 5) return;
+      const x = frame.left + (index * frame.width) / Math.max(1, rows.length - 1);
+      ctx.fillStyle = palette.muted;
+      ctx.font = "11px system-ui, sans-serif";
+      ctx.fillText(String(row.label || "").slice(0, 10), x - 8, height - 10);
+    });
+  }
+
+  function radarChart(id, values) {
+    const canvas = document.getElementById(id);
+    if (!canvas) return;
+    const { ctx, width, height } = setup(canvas);
+    const labels = [
+      { key: "mood", label: "Mood" },
+      { key: "energy", label: "Energy" },
+      { key: "productivity", label: "Productivity" },
+    ];
+    if (!values || labels.every((item) => Number(values[item.key] || 0) === 0)) {
+      emptyState(ctx, width, height, "No 30-day signal yet");
+      return;
+    }
+    const cx = width / 2;
+    const cy = height / 2 + 8;
+    const radius = Math.min(width, height) * 0.32;
+    ctx.strokeStyle = palette.grid;
+    ctx.fillStyle = palette.muted;
+    ctx.font = "700 12px system-ui, sans-serif";
+    for (let ring = 1; ring <= 5; ring += 1) {
+      ctx.beginPath();
+      labels.forEach((item, index) => {
+        const angle = -Math.PI / 2 + (index * Math.PI * 2) / labels.length;
+        const r = (radius * ring) / 5;
+        const x = cx + Math.cos(angle) * r;
+        const y = cy + Math.sin(angle) * r;
+        if (index === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.closePath();
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    labels.forEach((item, index) => {
+      const angle = -Math.PI / 2 + (index * Math.PI * 2) / labels.length;
+      const value = Math.max(0, Math.min(5, Number(values[item.key] || 0)));
+      const r = (radius * value) / 5;
+      const x = cx + Math.cos(angle) * r;
+      const y = cy + Math.sin(angle) * r;
+      if (index === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.closePath();
+    ctx.fillStyle = "rgba(154, 91, 49, 0.28)";
+    ctx.fill();
+    ctx.strokeStyle = "#9a5b31";
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    labels.forEach((item, index) => {
+      const angle = -Math.PI / 2 + (index * Math.PI * 2) / labels.length;
+      const x = cx + Math.cos(angle) * (radius + 28);
+      const y = cy + Math.sin(angle) * (radius + 28);
+      ctx.fillStyle = palette.text;
+      ctx.textAlign = "center";
+      ctx.fillText(`${item.label} ${Number(values[item.key] || 0).toFixed(1)}`, x, y);
+    });
+    ctx.textAlign = "left";
+  }
+
   function renderDashboard(data) {
     barChart("incomeExpenseChart", data.incomeExpense || [], ["income", "expense"], {
       labels: { income: "Income", expense: "Expense" },
@@ -242,11 +358,16 @@
     });
   }
 
+  function renderJournal(data) {
+    scoreLineChart("journalTrendChart", data.weekly || [], ["mood", "energy", "productivity"]);
+    radarChart("journalRadarChart", data.radar || {});
+  }
+
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => setupRupiahInputs(document));
   } else {
     setupRupiahInputs(document);
   }
 
-  window.MoneyManagerCharts = { renderDashboard, renderInvestment, renderForecast, setupRupiahInputs };
+  window.MoneyManagerCharts = { renderDashboard, renderInvestment, renderForecast, renderJournal, setupRupiahInputs };
 })();

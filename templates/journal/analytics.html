@@ -1,0 +1,88 @@
+{% extends "finance/base.html" %}
+
+{% block content %}
+<section class="page-head dashboard-head journal-head">
+  <div>
+    <p class="eyebrow">Mood Analytics</p>
+    <h1>Patterns</h1>
+    <p class="lead">Manual mood, energy, and productivity signals summarized into weekly and monthly patterns.</p>
+  </div>
+  <div class="head-actions">
+    <a class="button ghost" href="{% url 'journal:dashboard' %}">Today</a>
+    <a class="button ghost" href="{% url 'journal:history' %}">History</a>
+  </div>
+</section>
+
+<section class="grid two">
+  <div class="panel">
+    <div class="panel-head compact">
+      <h2>Mood Heatmap</h2>
+      <span class="pill">12 weeks</span>
+    </div>
+    <div class="journal-heatmap" aria-label="Journal mood heatmap">
+      {% for week in heatmap_weeks %}
+        <div class="journal-heatmap-week">
+          {% for day in week %}
+            <span class="heat-cell mood-{{ day.level }}" title="{{ day.date|date:'Y-m-d' }}{% if day.has_entry %} mood {{ day.mood }} {{ day.title }}{% else %} no entry{% endif %}"></span>
+          {% endfor %}
+        </div>
+      {% endfor %}
+    </div>
+    <div class="heatmap-legend">
+      <span>Less</span>
+      <span class="heat-cell mood-1"></span>
+      <span class="heat-cell mood-2"></span>
+      <span class="heat-cell mood-3"></span>
+      <span class="heat-cell mood-4"></span>
+      <span class="heat-cell mood-5"></span>
+      <span>More</span>
+    </div>
+  </div>
+
+  <div class="panel chart-panel">
+    <div class="panel-head compact">
+      <h2>Last 30 Days</h2>
+    </div>
+    <canvas id="journalRadarChart" height="260"></canvas>
+  </div>
+</section>
+
+<section class="grid two">
+  <div class="panel chart-panel">
+    <div class="panel-head compact">
+      <h2>Weekly Trend</h2>
+    </div>
+    <canvas id="journalTrendChart" height="260"></canvas>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head compact">
+      <h2>Monthly Summary</h2>
+    </div>
+    <div class="review-list">
+      {% for row in monthly_rows %}
+        <article class="review-card journal-month-row">
+          <h3>{{ row.label }}</h3>
+          <div class="task-meta">
+            <span>{{ row.entries }} entries</span>
+            <span>Mood {{ row.mood }}</span>
+            <span>Energy {{ row.energy }}</span>
+            <span>Productivity {{ row.productivity }}</span>
+          </div>
+        </article>
+      {% empty %}
+        <div class="empty-state compact">No monthly data yet.</div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+{{ charts_json|json_script:"journal-chart-data" }}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  window.MoneyManagerCharts.renderJournal(JSON.parse(document.getElementById("journal-chart-data").textContent));
+</script>
+{% endblock %}
+

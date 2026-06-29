@@ -1,0 +1,21 @@
+{% extends "finance/base.html" %}
+{% load static %}
+
+{% block content %}
+<section class="page-head dashboard-head journal-head">
+  <div>
+    <p class="eyebrow">Edit Journal</p>
+    <h1>{{ entry_date|date:"Y-m-d" }}</h1>
+    <p class="lead">Edit the daily entry, update scores, or attach images. Reading mode stays clean and separate from this editor.</p>
+  </div>
+  <div class="head-actions">
+    {% if entry %}<a class="button ghost" href="{% url 'journal:entry' entry.date|date:'Y-m-d' %}">Read Entry</a>{% endif %}
+    <a class="button ghost" href="{% url 'journal:dashboard' %}">Today</a>
+    <a class="button ghost" href="{% url 'journal:analytics' %}">Analytics</a>
+  </div>
+</section>
+
+<section class="panel form-panel journal-entry-panel">
+  {% include "journal/_entry_form.html" %}
+</section>
+{% endblock %}

@@ -1,0 +1,55 @@
+{% extends "finance/base.html" %}
+
+{% block content %}
+<section class="page-head dashboard-head journal-head">
+  <div>
+    <p class="eyebrow">Journal</p>
+    <h1>History</h1>
+    <p class="lead">Browse past entries and search by title, text, or tags.</p>
+  </div>
+  <div class="head-actions">
+    <a class="button ghost" href="{% url 'journal:dashboard' %}">Today</a>
+    <a class="button ghost" href="{% url 'journal:analytics' %}">Analytics</a>
+  </div>
+</section>
+
+<section class="panel board-capture">
+  <form method="get" class="quick-row">
+    <label class="field">
+      <span>Search</span>
+      <input class="field-input" type="search" name="q" value="{{ query }}" placeholder="Search journal, mood context, or tags">
+    </label>
+    <div class="form-actions">
+      <button class="button" type="submit">Filter</button>
+      <a class="button ghost" href="{% url 'journal:history' %}">Clear</a>
+    </div>
+  </form>
+</section>
+
+<section class="panel">
+  <div class="panel-head compact">
+    <h2>Entries</h2>
+    <span class="pill">{{ entries|length }}</span>
+  </div>
+  <div class="journal-entry-list wide">
+    {% for entry in entries %}
+      <article class="journal-entry-card">
+        <div>
+          <a class="task-title" href="{% url 'journal:entry' entry.date|date:'Y-m-d' %}">{{ entry.date|date:"Y-m-d" }}</a>
+          {% if entry.title %}<p>{{ entry.title }}</p>{% endif %}
+          {% if entry.preview %}<small>{{ entry.preview }}</small>{% endif %}
+          <div class="task-meta">
+            <span>Mood {{ entry.mood_score }}</span>
+            <span>Energy {{ entry.energy_score }}</span>
+            <span>Productivity {{ entry.productivity_score }}</span>
+            {% if entry.tags %}<span>{{ entry.tags }}</span>{% endif %}
+          </div>
+        </div>
+      </article>
+    {% empty %}
+      <div class="empty-state">No entries found.</div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
+

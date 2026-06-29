@@ -1,0 +1,78 @@
+{% extends "finance/base.html" %}
+{% load static %}
+
+{% block content %}
+<section class="page-head dashboard-head journal-head">
+  <div>
+    <p class="eyebrow">Daily Journal</p>
+    <h1>Mood Check-In</h1>
+    <p class="lead">Write the day, score mood-energy-productivity, and let the history show patterns without mixing it with money or task goals.</p>
+  </div>
+  <div class="head-actions">
+    <a class="button ghost" href="{% url 'journal:analytics' %}">Analytics</a>
+    <a class="button ghost" href="{% url 'journal:history' %}">History</a>
+  </div>
+</section>
+
+<section class="kpi-grid journal-kpis">
+  <div class="metric-card primary">
+    <small>Current Streak</small>
+    <strong>{{ snapshot.streak }}</strong>
+  </div>
+  <div class="metric-card">
+    <small>Entries This Week</small>
+    <strong>{{ snapshot.entries_this_week }}</strong>
+  </div>
+  <div class="metric-card">
+    <small>Avg Mood</small>
+    <strong>{{ snapshot.avg_mood }}</strong>
+  </div>
+  <div class="metric-card">
+    <small>Avg Productivity</small>
+    <strong>{{ snapshot.avg_productivity }}</strong>
+  </div>
+</section>
+
+<section class="grid two manage-grid">
+  <div class="panel {% if entry %}journal-read-panel{% else %}form-panel journal-entry-panel{% endif %}">
+    <div class="panel-head compact">
+      <h2>{% if entry %}Today Entry{% else %}Write Today{% endif %}</h2>
+      <span class="pill">{{ today }}</span>
+    </div>
+    {% if entry %}
+      {% include "journal/_entry_read.html" %}
+      <div class="form-actions stacked-action">
+        <a class="button" href="{% url 'journal:entry_edit' entry.date|date:'Y-m-d' %}">Edit today</a>
+        <a class="button ghost" href="{% url 'journal:entry' entry.date|date:'Y-m-d' %}">Open read page</a>
+      </div>
+    {% else %}
+      {% include "journal/_entry_form.html" %}
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <div class="panel-head compact">
+      <h2>Recent Entries</h2>
+      <a class="text-link" href="{% url 'journal:history' %}">Open all</a>
+    </div>
+    <div class="journal-entry-list">
+      {% for item in recent_entries %}
+        <article class="journal-entry-card">
+          <div>
+            <a class="task-title" href="{% url 'journal:entry' item.date|date:'Y-m-d' %}">{{ item.date|date:"Y-m-d" }}</a>
+            {% if item.title %}<p>{{ item.title }}</p>{% endif %}
+            {% if item.preview %}<small>{{ item.preview }}</small>{% endif %}
+            <div class="task-meta">
+              <span>Mood {{ item.mood_score }}</span>
+              <span>Energy {{ item.energy_score }}</span>
+              <span>Productivity {{ item.productivity_score }}</span>
+            </div>
+          </div>
+        </article>
+      {% empty %}
+        <div class="empty-state compact">No journal entries yet.</div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}

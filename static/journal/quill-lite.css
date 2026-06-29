@@ -1,0 +1,63 @@
+.journal-editor-shell {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fffdf8;
+  overflow: hidden;
+}
+
+.journal-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px;
+  border-bottom: 1px solid var(--line-soft);
+  background: #f7ede2;
+}
+
+.journal-toolbar button {
+  min-width: 34px;
+  min-height: 30px;
+  border: 1px solid #ddc5ae;
+  border-radius: var(--radius);
+  background: #fffaf3;
+  color: #38281f;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.journal-toolbar button:hover,
+.journal-toolbar button:focus {
+  background: #eed9c4;
+  outline: none;
+}
+
+.journal-editor {
+  min-height: 260px;
+  padding: 16px;
+  color: #251b15;
+  line-height: 1.65;
+  outline: none;
+}
+
+.journal-editor:empty::before {
+  content: "Write what happened, what changed your mood, and what helped you move today...";
+  color: #9b8775;
+}
+
+.journal-editor h2 {
+  margin: 0 0 10px;
+  font-size: 22px;
+}
+
+.journal-editor ul {
+  margin: 0 0 12px;
+  padding-left: 22px;
+}
+
+.journal-editor blockquote {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border-left: 4px solid #b98a61;
+  background: #fbf4eb;
+  color: #4c382d;
+}

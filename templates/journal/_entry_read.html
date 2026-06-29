@@ -1,0 +1,31 @@
+{% load static %}
+<article class="journal-read-shell">
+  <div class="journal-read-meta">
+    <span>Mood {{ entry.mood_score }}</span>
+    <span>Energy {{ entry.energy_score }}</span>
+    <span>Productivity {{ entry.productivity_score }}</span>
+    {% if entry.tags %}<span>{{ entry.tags }}</span>{% endif %}
+  </div>
+  {% if entry.title %}<h2>{{ entry.title }}</h2>{% endif %}
+  <div id="journal-reader" class="journal-reader">
+    {% if entry.content_text %}<p>{{ entry.content_text|linebreaksbr }}</p>{% endif %}
+  </div>
+  {% if entry.attachments.exists %}
+    <div class="journal-gallery">
+      {% for attachment in entry.attachments.all %}
+        <a href="{{ attachment.image.url }}" target="_blank" rel="noopener" class="journal-gallery-item">
+          <img src="{{ attachment.image.url }}" alt="{{ attachment.original_name }}">
+        </a>
+      {% endfor %}
+    </div>
+  {% endif %}
+</article>
+
+{{ reader_delta|json_script:"journal-reader-delta" }}
+<script src="{% static 'journal/quill-lite.js' %}?v=2"></script>
+<script>
+  window.JournalEditor.renderReadOnly(
+    document.getElementById("journal-reader"),
+    JSON.parse(document.getElementById("journal-reader-delta").textContent)
+  );
+</script>

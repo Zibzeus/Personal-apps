@@ -1,28 +1,43 @@
-# Money Manager Lokal
+# Personal Apps
 
-Aplikasi money manager pribadi yang berjalan di laptop Windows. Input utama lewat Telegram bot, dashboard lokal di browser, dan audit finansial rule-based untuk mencari area pengeluaran yang bisa dikurangi.
+Local-first personal operating system built with Django and SQLite. The project started as a Money Manager, then grew into a single local workspace for finance, productivity execution, and daily journaling.
 
-## Fitur
+Everything runs in one Django project, one login/session system, one SQLite database, and one local web server on port `8000`.
 
-- Telegram bot dengan input bebas dan tombol konfirmasi.
-- App chooser lokal di `http://127.0.0.1:8000`.
-- Money Manager di `http://127.0.0.1:8000/money/`.
-- Productivity manager di `http://127.0.0.1:8000/productivity/`.
-- Grafik cashflow, kategori pengeluaran, spending harian, saldo akun, budget, dan saving rate.
-- CRUD akun, kategori, transaksi, transfer, budget, recurring, hutang/piutang, dan savings goal.
-- Debt repayment otomatis mengurangi current balance dan menutup debt saat sudah Rp0.
-- Kurs check di `/currency/` untuk konversi mata uang asing ke Rupiah, dengan history tersimpan untuk audit/forecasting.
-- Investment portfolio di `/investments/` dengan holdings, market value, cost basis, gain/loss, allocation, watchlist, manual/API price cache.
-- Financial freedom/FIRE planner di `/financial-freedom/` dengan FIRE number, net worth, gap, runway, dan simulasi kontribusi bulanan.
-- Financial Coach di `/coach/` untuk monthly audit, bocor halus, action list, subscription candidates, goal routing, dan cashflow forecast.
-- Monthly audit di `/monthly-audit/` dengan close/reopen/recalculate dan tampilan print-friendly untuk Save as PDF dari browser.
-- Subscription center di `/subscriptions/` untuk confirmed subscription dan auto-detected recurring candidates.
-- Cashflow forecast di `/forecast/` untuk proyeksi saldo harian 90 hari dan checkpoint 30/60/90 hari.
-- Financial goals di `/goals/` untuk dana darurat, debt payoff, FIRE, dan target tabungan prioritas.
-- Productivity manager di `/productivity/` untuk daily task execution, energy-based priority, kanban board, life/work goals, weekly review, dan monthly review.
-- Live Rupiah formatting di form nominal, contoh `12000` otomatis tampil `12.000`.
-- Financial audit: over-budget, spending spike, discretionary saving opportunity, subscription review, duplikat transaksi, uncategorized, hutang jatuh tempo, dan saving rate gap.
-- Export CSV dan backup SQLite lokal.
+## Apps
+
+- App chooser: `http://127.0.0.1:8000/`
+- Money Manager: `http://127.0.0.1:8000/money/`
+- Productivity: `http://127.0.0.1:8000/productivity/`
+- Daily Journal: `http://127.0.0.1:8000/journal/`
+
+## Main Features
+
+### Money Manager
+
+- Local finance dashboard with cashflow, account balances, saving rate, spending trends, and budget visibility.
+- CRUD for accounts, categories, transactions, transfers, budgets, recurring rules, debt/receivables, and savings goals.
+- Telegram parser for finance entries such as expense, income, transfer, debt, investment buy/sell/dividend, and manual prices.
+- Currency checker with cached ExchangeRate-API snapshots.
+- Investment portfolio with holdings, cost basis, market value, gain/loss, allocation, watchlist, and stale/manual price support.
+- FIRE planner with FIRE number, runway, net worth, monthly contribution simulation, and allocation targets.
+- Financial Coach for monthly audit, subscription detection, leak/spending analysis, goal routing, and 90-day cashflow forecast.
+- CSV export and SQLite backup.
+
+### Productivity
+
+- Daily execution dashboard with quick capture, overdue tasks, planned-today tasks, and energy-based suggestions.
+- Kanban board for Inbox, Next, Doing, Waiting, and Done.
+- Non-financial goals and projects kept separate from finance goals.
+- Weekly and monthly reviews with snapshots and current focus.
+- Telegram productivity commands: `task`, `today`, `done <id>`, `goal`, and `review`.
+
+### Daily Journal
+
+- One journal entry per day with mood, energy, productivity, tags, and rich local editor data.
+- Read mode is separate from edit mode, so past entries open like normal journal pages.
+- Image attachments are stored locally under Django media storage and displayed in the read page.
+- Mood analytics with heatmap, weekly trends, monthly summaries, and radar chart.
 
 ## Setup Windows
 
@@ -30,57 +45,83 @@ Aplikasi money manager pribadi yang berjalan di laptop Windows. Input utama lewa
 .\scripts\setup.ps1
 ```
 
-Isi `.env`:
+Create `.env`:
+
+```env
+DJANGO_SECRET_KEY=local-dev-secret
+DJANGO_DEBUG=1
+DJANGO_REQUIRE_LOGIN=1
+DEFAULT_CURRENCY=IDR
+```
+
+Optional Telegram settings:
 
 ```env
 TELEGRAM_BOT_TOKEN=token_dari_BotFather
 TELEGRAM_ALLOWED_USER_IDS=id_telegram_kamu
+TELEGRAM_BOT_ENABLED=0
 ```
 
-Kalau menjalankan dari worktree tetapi ingin memakai database utama, arahkan SQLite ke file lama:
+The Telegram bot is disabled by default in `scripts/start-bot.ps1`. Set `TELEGRAM_BOT_ENABLED=1` or run `scripts/start-bot.ps1 -Force` only if you want the bot running.
+
+If you are running from a Codex worktree but want to use the main database:
 
 ```env
 SQLITE_DB_PATH=C:\Users\jalan\OneDrive\Documents\Money Manager\db.sqlite3
 ```
 
-Kurs checker memakai ExchangeRate-API Open Access tanpa API key. Default endpoint sudah diset otomatis, tapi bisa dioverride kalau perlu:
+Optional market/currency settings:
 
 ```env
 EXCHANGE_RATE_API_URL=https://open.er-api.com/v6/latest/{currency}
-```
-
-Market data investasi local-first. Manual price selalu bisa dipakai. Untuk API gratis opsional:
-
-```env
 MARKET_DATA_PROVIDER=auto
 ALPHA_VANTAGE_API_KEY=
 ```
 
-`yfinance` juga didukung kalau kamu install sendiri di environment lokal. Kalau API gagal, app memakai cached/manual price terakhir dan menandainya stale.
+## Run Locally
 
-Jalankan dashboard:
+Start the web app:
 
 ```powershell
 .\scripts\start-web.ps1
 ```
 
-Setelah login, buka `http://127.0.0.1:8000/` untuk memilih Money Manager atau Productivity.
-
-Jalankan bot Telegram:
+Stop the web app listener on the configured port:
 
 ```powershell
-.\scripts\start-bot.ps1
+.\scripts\start-web.ps1 -Stop
 ```
 
-Install auto-start saat login:
+`start-web.ps1` now clears duplicate listeners on `WEB_PORT` before starting Django. This prevents stale server processes from serving old routes/templates on `127.0.0.1:8000`.
+
+Run Telegram bot manually:
+
+```powershell
+.\scripts\start-bot.ps1 -Force
+```
+
+Install scheduled tasks:
 
 ```powershell
 .\scripts\install-task-scheduler.ps1
 ```
 
-## Akses dari Android atau VM
+If `MoneyManagerBot` still exists in Windows Task Scheduler and you no longer use it, disable it from an Administrator PowerShell:
 
-Default dashboard hanya bind ke `127.0.0.1`, jadi aman untuk laptop lokal. Kalau dipindah ke VM dan ingin dibuka dari Android di network yang sama, isi `.env` seperti ini:
+```powershell
+schtasks /Change /TN "\MoneyManagerBot" /DISABLE
+```
+
+## Access From Android Or VM
+
+Default web binding is local-only:
+
+```env
+WEB_HOST=127.0.0.1
+WEB_PORT=8000
+```
+
+For a VM or another device on the same network:
 
 ```env
 WEB_HOST=0.0.0.0
@@ -88,26 +129,22 @@ WEB_PORT=8000
 DJANGO_ALLOWED_HOSTS=127.0.0.1,localhost,IP_VM_KAMU
 ```
 
-Lalu jalankan:
-
-```powershell
-.\scripts\start-web.ps1
-```
-
-Dari Android buka:
+Then open:
 
 ```text
-http://IP_VM_KAMU:8000
+http://IP_VM_KAMU:8000/
 ```
 
-Kalau akses lewat domain/tunnel HTTPS, tambahkan juga:
+For HTTPS/domain/tunnel access, also configure:
 
 ```env
 DJANGO_ALLOWED_HOSTS=domain-kamu.example
 DJANGO_CSRF_TRUSTED_ORIGINS=https://domain-kamu.example
 ```
 
-## Contoh Input Telegram
+## Telegram Examples
+
+Finance commands:
 
 - `makan 35000 bca`
 - `gaji 15000000 bca`
@@ -118,31 +155,33 @@ DJANGO_CSRF_TRUSTED_ORIGINS=https://domain-kamu.example
 - `sell bbca 2 lot 11000`
 - `dividend bbca 150000`
 - `price bbca 10500`
+
+Productivity commands:
+
 - `task follow up vendor`
 - `today`
 - `done 12`
 - `goal lulus sertifikasi`
 - `review`
 
-Semua input penting akan diminta konfirmasi sebelum masuk database.
-Productivity command seperti `task`, `goal`, dan `done` disimpan langsung supaya capture tetap cepat.
+Finance inputs use confirmation before writing important data. Productivity capture commands save directly for low-friction task capture.
 
-## Financial Coach
+## Validation
 
-Alur rekomendasi v1 bersifat review-first:
+Run before publishing changes:
 
-1. Tambahkan transaksi dan recurring/subscription seperti biasa.
-2. Buat goal prioritas di `/goals/`, misalnya dana darurat atau debt payoff.
-3. Buka `/coach/` untuk melihat action list dan forecast.
-4. Buka `/monthly-audit/` untuk close bulan, recalculate jika ada koreksi, lalu print/save as PDF dari browser.
-5. Buka `/subscriptions/` untuk confirm atau ignore recurring candidates yang terdeteksi otomatis.
+```powershell
+python manage.py check
+python manage.py makemigrations --check --dry-run
+python manage.py test
+```
 
-Forecast tidak membuat transaksi baru. Forecast hanya simulasi dari saldo sekarang, recurring, subscription, debt due, budget reserve, dan target goal prioritas.
+## Notes
 
-## Catatan
+Recommendations are rule-based local audit and planning aids, not financial or investment advice. There is no bank/e-wallet auto-sync in this version.
 
-Rekomendasi adalah audit cashflow dan kebiasaan belanja, bukan rekomendasi investasi. Tidak ada bank/e-wallet auto-sync pada v1.
+Uploaded journal images live in local `media/` storage and are intentionally ignored by git.
 
 ## Deploy Online
 
-Untuk PythonAnywhere Free, lihat [deploy/PYTHONANYWHERE.md](deploy/PYTHONANYWHERE.md).
+For PythonAnywhere Free, see [deploy/PYTHONANYWHERE.md](deploy/PYTHONANYWHERE.md).

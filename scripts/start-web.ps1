@@ -1,3 +1,7 @@
+param(
+    [switch]$Stop
+)
+
 $ErrorActionPreference = "Stop"
 
 $Root = Split-Path -Parent $PSScriptRoot
@@ -28,6 +32,59 @@ $Port = Get-LocalEnvValue "WEB_PORT" "8000"
 $LogDir = Join-Path $Root "runtime\logs"
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 
+function Get-WebListenerProcessIds {
+    $Pattern = "^\s*TCP\s+\S+:$([regex]::Escape($Port))\s+\S+\s+LISTENING\s+(\d+)\s*$"
+    $Ids = @()
+    foreach ($Line in netstat -ano -p tcp) {
+        if ($Line -match $Pattern) {
+            $Ids += [int]$matches[1]
+        }
+    }
+    return $Ids | Sort-Object -Unique
+}
+
+function Stop-WebListeners {
+    param([string]$Reason)
+
+    $ListenerIds = @(Get-WebListenerProcessIds)
+    if (-not $ListenerIds.Count) {
+        Write-Host "No existing web listener found on port $Port."
+        return
+    }
+
+    Write-Host "$Reason"
+    foreach ($ListenerId in $ListenerIds) {
+        if ($ListenerId -eq $PID) {
+            continue
+        }
+        try {
+            Write-Host "Stopping existing web listener PID $ListenerId on port $Port."
+            Stop-Process -Id $ListenerId -Force -ErrorAction Stop
+        }
+        catch {
+            Write-Host "Could not stop PID ${ListenerId}: $($_.Exception.Message)"
+        }
+    }
+
+    $Deadline = (Get-Date).AddSeconds(10)
+    while (@(Get-WebListenerProcessIds).Count -and (Get-Date) -lt $Deadline) {
+        Start-Sleep -Milliseconds 300
+    }
+
+    $Remaining = @(Get-WebListenerProcessIds)
+    if ($Remaining.Count) {
+        Write-Host "Port $Port is still held by PID(s): $($Remaining -join ', ')"
+    }
+    else {
+        Write-Host "Port $Port is clear."
+    }
+}
+
+if ($Stop) {
+    Stop-WebListeners "Stopping Money Manager web server on port $Port."
+    exit 0
+}
+
 function Invoke-Checked {
     param([scriptblock]$Command)
     & $Command
@@ -38,6 +95,8 @@ function Invoke-Checked {
 
 Invoke-Checked { & $Python (Join-Path $Root "manage.py") migrate }
 Invoke-Checked { & $Python (Join-Path $Root "manage.py") seed_defaults }
+
+Stop-WebListeners "Clearing duplicate Money Manager web listeners before start."
 
 $LogFile = Join-Path $LogDir "web.log"
 try {

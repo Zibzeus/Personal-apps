@@ -1,30 +1,39 @@
 {% load static %}
+{% with app_name=request.resolver_match.app_name %}
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% if request.resolver_match.app_name == "productivity" %}Productivity{% else %}Money Manager{% endif %}</title>
-  <link rel="stylesheet" href="{% static 'finance/style.css' %}?v=6">
+  <title>{% if app_name == "productivity" %}Productivity{% elif app_name == "journal" %}Daily Journal{% else %}Money Manager{% endif %}</title>
+  <link rel="stylesheet" href="{% static 'finance/style.css' %}?v=8">
+  {% if app_name == "journal" %}<link rel="stylesheet" href="{% static 'journal/quill-lite.css' %}?v=2">{% endif %}
 </head>
-<body>
+<body class="{% if app_name == 'productivity' %}app-productivity{% elif app_name == 'journal' %}app-journal{% else %}app-money{% endif %}">
   <div class="app-shell">
     <aside class="sidebar">
       <a class="brand" href="{% url 'home' %}">
-        <span class="brand-mark">{% if request.resolver_match.app_name == "productivity" %}PX{% else %}MM{% endif %}</span>
+        <span class="brand-mark">{% if app_name == "productivity" %}PX{% elif app_name == "journal" %}JR{% else %}MM{% endif %}</span>
         <span>
-          <strong>{% if request.resolver_match.app_name == "productivity" %}Productivity{% else %}Money Manager{% endif %}</strong>
-          <small>{% if request.resolver_match.app_name == "productivity" %}Execution system{% else %}Local finance audit{% endif %}</small>
+          <strong>{% if app_name == "productivity" %}Productivity{% elif app_name == "journal" %}Daily Journal{% else %}Money Manager{% endif %}</strong>
+          <small>{% if app_name == "productivity" %}Execution system{% elif app_name == "journal" %}Mood analytics{% else %}Local finance audit{% endif %}</small>
         </span>
       </a>
       <nav class="nav" aria-label="Primary navigation">
         <a href="{% url 'home' %}"><span>App Home</span></a>
-        {% if request.resolver_match.app_name == "productivity" %}
+        {% if app_name == "productivity" %}
           <a href="{% url 'productivity:dashboard' %}"><span>Daily Dashboard</span></a>
           <a href="{% url 'productivity:board' %}"><span>Task Board</span></a>
           <a href="{% url 'productivity:goals' %}"><span>Goals & Projects</span></a>
           <a href="{% url 'productivity:weekly_review' %}"><span>Weekly Review</span></a>
           <a href="{% url 'productivity:monthly_review' %}"><span>Monthly Review</span></a>
+          <a href="{% url 'finance:dashboard' %}"><span>Open Money Manager</span></a>
+          <a href="{% url 'journal:dashboard' %}"><span>Open Journal</span></a>
+        {% elif app_name == "journal" %}
+          <a href="{% url 'journal:dashboard' %}"><span>Today</span></a>
+          <a href="{% url 'journal:history' %}"><span>History</span></a>
+          <a href="{% url 'journal:analytics' %}"><span>Analytics</span></a>
+          <a href="{% url 'productivity:dashboard' %}"><span>Open Productivity</span></a>
           <a href="{% url 'finance:dashboard' %}"><span>Open Money Manager</span></a>
         {% else %}
           <a href="{% url 'finance:dashboard' %}"><span>Overview</span></a>
@@ -46,12 +55,16 @@
           <a href="{% url 'finance:accounts' %}"><span>Accounts</span></a>
           <a href="{% url 'finance:categories' %}"><span>Categories</span></a>
           <a href="{% url 'productivity:dashboard' %}"><span>Open Productivity</span></a>
+          <a href="{% url 'journal:dashboard' %}"><span>Open Journal</span></a>
         {% endif %}
       </nav>
       <div class="side-actions">
-        {% if request.resolver_match.app_name == "productivity" %}
+        {% if app_name == "productivity" %}
           <a class="button ghost full" href="{% url 'productivity:dashboard' %}">Capture Task</a>
           <a class="button ghost full" href="{% url 'productivity:weekly_review' %}">Review Week</a>
+        {% elif app_name == "journal" %}
+          <a class="button ghost full" href="{% url 'journal:dashboard' %}">Write Today</a>
+          <a class="button ghost full" href="{% url 'journal:analytics' %}">View Patterns</a>
         {% else %}
           <a class="button ghost full" href="{% url 'finance:export_csv' %}">Export CSV</a>
           <a class="button ghost full" href="{% url 'finance:backup' %}">Backup DB</a>
@@ -62,11 +75,13 @@
       <header class="topbar">
         <div>
           <span class="status-dot"></span>
-          <span>{% if request.resolver_match.app_name == "productivity" %}Productivity workspace{% else %}Money workspace{% endif %}</span>
+          <span>{% if app_name == "productivity" %}Productivity workspace{% elif app_name == "journal" %}Journal workspace{% else %}Money workspace{% endif %}</span>
         </div>
         <div class="topbar-actions">
-          {% if request.resolver_match.app_name == "productivity" %}
+          {% if app_name == "productivity" %}
             <a class="button subtle" href="{% url 'productivity:dashboard' %}">Add task</a>
+          {% elif app_name == "journal" %}
+            <a class="button subtle" href="{% url 'journal:dashboard' %}">Write today</a>
           {% else %}
             <a class="button subtle" href="{% url 'finance:transactions' %}">Add transaction</a>
           {% endif %}
@@ -82,7 +97,8 @@
       {% block content %}{% endblock %}
     </main>
   </div>
-  <script src="{% static 'finance/app.js' %}?v=6"></script>
+  <script src="{% static 'finance/app.js' %}?v=8"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>
+{% endwith %}
