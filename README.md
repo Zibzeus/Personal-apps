@@ -5,7 +5,9 @@ Aplikasi money manager pribadi yang berjalan di laptop Windows. Input utama lewa
 ## Fitur
 
 - Telegram bot dengan input bebas dan tombol konfirmasi.
-- Dashboard lokal di `http://127.0.0.1:8000`.
+- App chooser lokal di `http://127.0.0.1:8000`.
+- Money Manager di `http://127.0.0.1:8000/money/`.
+- Productivity manager di `http://127.0.0.1:8000/productivity/`.
 - Grafik cashflow, kategori pengeluaran, spending harian, saldo akun, budget, dan saving rate.
 - CRUD akun, kategori, transaksi, transfer, budget, recurring, hutang/piutang, dan savings goal.
 - Debt repayment otomatis mengurangi current balance dan menutup debt saat sudah Rp0.
@@ -17,6 +19,7 @@ Aplikasi money manager pribadi yang berjalan di laptop Windows. Input utama lewa
 - Subscription center di `/subscriptions/` untuk confirmed subscription dan auto-detected recurring candidates.
 - Cashflow forecast di `/forecast/` untuk proyeksi saldo harian 90 hari dan checkpoint 30/60/90 hari.
 - Financial goals di `/goals/` untuk dana darurat, debt payoff, FIRE, dan target tabungan prioritas.
+- Productivity manager di `/productivity/` untuk daily task execution, energy-based priority, kanban board, life/work goals, weekly review, dan monthly review.
 - Live Rupiah formatting di form nominal, contoh `12000` otomatis tampil `12.000`.
 - Financial audit: over-budget, spending spike, discretionary saving opportunity, subscription review, duplikat transaksi, uncategorized, hutang jatuh tempo, dan saving rate gap.
 - Export CSV dan backup SQLite lokal.
@@ -32,6 +35,12 @@ Isi `.env`:
 ```env
 TELEGRAM_BOT_TOKEN=token_dari_BotFather
 TELEGRAM_ALLOWED_USER_IDS=id_telegram_kamu
+```
+
+Kalau menjalankan dari worktree tetapi ingin memakai database utama, arahkan SQLite ke file lama:
+
+```env
+SQLITE_DB_PATH=C:\Users\jalan\OneDrive\Documents\Money Manager\db.sqlite3
 ```
 
 Kurs checker memakai ExchangeRate-API Open Access tanpa API key. Default endpoint sudah diset otomatis, tapi bisa dioverride kalau perlu:
@@ -54,6 +63,8 @@ Jalankan dashboard:
 ```powershell
 .\scripts\start-web.ps1
 ```
+
+Setelah login, buka `http://127.0.0.1:8000/` untuk memilih Money Manager atau Productivity.
 
 Jalankan bot Telegram:
 
@@ -107,8 +118,14 @@ DJANGO_CSRF_TRUSTED_ORIGINS=https://domain-kamu.example
 - `sell bbca 2 lot 11000`
 - `dividend bbca 150000`
 - `price bbca 10500`
+- `task follow up vendor`
+- `today`
+- `done 12`
+- `goal lulus sertifikasi`
+- `review`
 
 Semua input penting akan diminta konfirmasi sebelum masuk database.
+Productivity command seperti `task`, `goal`, dan `done` disimpan langsung supaya capture tetap cepat.
 
 ## Financial Coach
 

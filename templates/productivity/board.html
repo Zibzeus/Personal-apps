@@ -1,0 +1,70 @@
+{% extends "finance/base.html" %}
+
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="eyebrow">Productivity</p>
+    <h1>Kanban Board</h1>
+    <p class="lead">Move work through inbox, next, doing, waiting, and done without losing the energy and priority signal.</p>
+  </div>
+  <div class="head-actions">
+    <a class="button ghost" href="{% url 'productivity:dashboard' %}">Dashboard</a>
+    <a class="button ghost" href="{% url 'productivity:goals' %}">Goals</a>
+  </div>
+</section>
+
+<section class="panel board-capture">
+  <form method="post" class="quick-row">
+    {% csrf_token %}
+    {% for field in form %}
+      <label class="field">
+        <span>{{ field.label }}</span>
+        {{ field }}
+        {% if field.errors %}<small class="error">{{ field.errors|striptags }}</small>{% endif %}
+      </label>
+    {% endfor %}
+    <div class="form-actions">
+      <button class="button" type="submit">Add task</button>
+    </div>
+  </form>
+</section>
+
+<section class="kanban">
+  {% for column in columns %}
+    <div class="kanban-column">
+      <div class="panel-head compact">
+        <h2>{{ column.label }}</h2>
+        <span class="pill">{{ column.tasks|length }}</span>
+      </div>
+      <div class="task-list">
+        {% for task in column.tasks %}
+          <article class="task-card priority-{{ task.priority }}">
+            <div>
+              <div class="task-title">#{{ task.id }} {{ task.title }}</div>
+              <div class="task-meta">
+                <span>P{{ task.priority }}</span>
+                <span>{{ task.get_energy_display }}</span>
+                {% if task.planned_date %}<span>Plan {{ task.planned_date }}</span>{% endif %}
+                {% if task.due_date %}<span>Due {{ task.due_date }}</span>{% endif %}
+                {% if task.project %}<span>{{ task.project.title }}</span>{% endif %}
+              </div>
+            </div>
+            <form method="post" action="{% url 'productivity:task_action' task.id %}" class="status-row">
+              {% csrf_token %}
+              <input type="hidden" name="next" value="{{ request.get_full_path }}">
+              <select class="field-input" name="status">
+                {% for value, label in status_choices %}
+                  <option value="{{ value }}"{% if task.status == value %} selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+              <button class="button small ghost" type="submit">Move</button>
+            </form>
+          </article>
+        {% empty %}
+          <div class="empty-state compact">Empty.</div>
+        {% endfor %}
+      </div>
+    </div>
+  {% endfor %}
+</section>
+{% endblock %}

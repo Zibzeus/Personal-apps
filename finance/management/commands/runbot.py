@@ -10,6 +10,7 @@ from finance.services import (
     record_parsed_entry,
     soft_delete_item,
 )
+from productivity.services import handle_productivity_command
 
 
 class Command(BaseCommand):
@@ -64,7 +65,8 @@ class Command(BaseCommand):
             await update.message.reply_text(
                 "Money Manager aktif.\n"
                 "Contoh: makan 35000 bca, gaji 15000000 bca, tf bca ovo 200000, "
-                "utang ke budi 100000, buy bbca 10 lot 10000 ajaib.",
+                "utang ke budi 100000, buy bbca 10 lot 10000 ajaib.\n"
+                "Productivity: task follow up invoice, today, done 12, goal lulus sertifikasi, review.",
                 reply_markup=keyboard,
             )
 
@@ -75,7 +77,12 @@ class Command(BaseCommand):
             await update.message.reply_text(
                 "Command:\n"
                 "/report - ringkasan bulan ini\n"
-                "/undo - hapus item Telegram terakhir\n\n"
+                "/undo - hapus item Telegram terakhir\n"
+                "/task <judul> - capture task ke Inbox\n"
+                "/today - lihat task hari ini dan overdue\n"
+                "/done <id> - tandai task selesai\n"
+                "/goal <judul> - buat productivity goal\n"
+                "/review - lihat weekly focus\n\n"
                 "Input bebas:\n"
                 "makan 35000 bca\n"
                 "gaji 15000000 bca\n"
@@ -86,6 +93,14 @@ class Command(BaseCommand):
                 "dividend bbca 150000\n"
                 "price bbca 10500"
             )
+
+        async def productivity_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+            if not is_allowed(update):
+                await reject(update)
+                return
+            user_id = str(update.effective_user.id)
+            result = handle_productivity_command(update.effective_message.text.strip(), source_user_id=user_id)
+            await update.effective_message.reply_text(result.message if result else "Command productivity tidak valid.")
 
         async def report(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if not is_allowed(update):
@@ -117,6 +132,10 @@ class Command(BaseCommand):
                 return
             user_id = str(update.effective_user.id)
             text = update.message.text.strip()
+            productivity = handle_productivity_command(text, source_user_id=user_id)
+            if productivity:
+                await update.message.reply_text(productivity.message)
+                return
             mode = wizard.pop(user_id, "")
             if mode and mode in {"expense", "income"}:
                 text = f"{mode} {text}"
@@ -181,6 +200,11 @@ class Command(BaseCommand):
         app = Application.builder().token(settings.TELEGRAM_BOT_TOKEN).build()
         app.add_handler(CommandHandler("start", start))
         app.add_handler(CommandHandler("help", help_cmd))
+        app.add_handler(CommandHandler("task", productivity_cmd))
+        app.add_handler(CommandHandler("today", productivity_cmd))
+        app.add_handler(CommandHandler("done", productivity_cmd))
+        app.add_handler(CommandHandler("goal", productivity_cmd))
+        app.add_handler(CommandHandler("review", productivity_cmd))
         app.add_handler(CommandHandler("report", report))
         app.add_handler(CommandHandler("undo", undo))
         app.add_handler(CallbackQueryHandler(callbacks))

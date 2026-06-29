@@ -1,10 +1,14 @@
 from django.contrib import admin
 from django.urls import include, path
 
+from . import views
+
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("accounts/", include("django.contrib.auth.urls")),
-    path("", include("finance.urls")),
+    path("", views.home, name="home"),
+    path("money/", include("finance.urls")),
+    path("productivity/", include("productivity.urls")),
 ]
 

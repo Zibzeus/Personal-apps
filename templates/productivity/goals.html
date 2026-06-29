@@ -1,0 +1,117 @@
+{% extends "finance/base.html" %}
+
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="eyebrow">Productivity</p>
+    <h1>Goals</h1>
+    <p class="lead">Track non-financial goals separately from Money Manager goals, then attach projects and tasks when execution starts.</p>
+  </div>
+  <div class="head-actions">
+    <a class="button ghost" href="{% url 'productivity:dashboard' %}">Dashboard</a>
+    <a class="button ghost" href="{% url 'productivity:monthly_review' %}">Monthly Review</a>
+  </div>
+</section>
+
+<section class="grid two manage-grid">
+  <div class="panel form-panel">
+    <div class="panel-head compact">
+      <h2>Add Goal</h2>
+      <span class="pill">Life/work</span>
+    </div>
+    <form method="post" class="form-grid">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="save_goal">
+      {% for field in goal_form %}
+        <label class="field">
+          <span>{{ field.label }}</span>
+          {{ field }}
+          {% if field.errors %}<small class="error">{{ field.errors|striptags }}</small>{% endif %}
+        </label>
+      {% endfor %}
+      <button class="button" type="submit">Save goal</button>
+    </form>
+  </div>
+
+  <div class="panel form-panel">
+    <div class="panel-head compact">
+      <h2>Add Project</h2>
+      <span class="pill">Optional</span>
+    </div>
+    <form method="post" class="form-grid">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="save_project">
+      {% for field in project_form %}
+        <label class="field">
+          <span>{{ field.label }}</span>
+          {{ field }}
+          {% if field.errors %}<small class="error">{{ field.errors|striptags }}</small>{% endif %}
+        </label>
+      {% endfor %}
+      <button class="button" type="submit">Save project</button>
+    </form>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <div>
+      <p class="eyebrow">Goal Tracker</p>
+      <h2>Active Goals</h2>
+    </div>
+  </div>
+  <div class="goal-board">
+    {% for goal in goals %}
+      <article class="goal-card">
+        <div class="goal-card-head">
+          <div>
+            <h3>{{ goal.title }}</h3>
+            <div class="task-meta">
+              <span>{{ goal.get_area_display }}</span>
+              <span>{{ goal.get_status_display }}</span>
+              <span>P{{ goal.priority }}</span>
+              {% if goal.target_date %}<span>Target {{ goal.target_date }}</span>{% endif %}
+            </div>
+          </div>
+          {% if goal.target_value %}
+            <strong>{{ goal.progress_percent }}%</strong>
+          {% endif %}
+        </div>
+        {% if goal.target_value %}
+          <div class="bar"><span style="width: {{ goal.progress_percent }}%"></span></div>
+          <p class="muted">{{ goal.current_value|default:"0" }} / {{ goal.target_value }} {{ goal.unit }}</p>
+        {% endif %}
+        {% if goal.progress_note %}<p>{{ goal.progress_note }}</p>{% endif %}
+        <div class="goal-links">
+          <span>{{ goal.projects.count }} projects</span>
+          <span>{{ goal.tasks.count }} tasks</span>
+        </div>
+      </article>
+    {% empty %}
+      <div class="empty-state">No productivity goals yet.</div>
+    {% endfor %}
+  </div>
+</section>
+
+{% if standalone_projects %}
+  <section class="panel">
+    <div class="panel-head compact">
+      <h2>Standalone Projects</h2>
+    </div>
+    <div class="task-list">
+      {% for project in standalone_projects %}
+        <article class="task-card">
+          <div>
+            <div class="task-title">{{ project.title }}</div>
+            <div class="task-meta">
+              <span>{{ project.get_status_display }}</span>
+              <span>P{{ project.priority }}</span>
+              {% if project.due_date %}<span>Due {{ project.due_date }}</span>{% endif %}
+            </div>
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+  </section>
+{% endif %}
+{% endblock %}

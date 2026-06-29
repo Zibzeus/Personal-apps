@@ -1,0 +1,199 @@
+{% extends "finance/base.html" %}
+
+{% block content %}
+<section class="page-head dashboard-head">
+  <div>
+    <p class="eyebrow">Productivity</p>
+    <h1>Execution Dashboard</h1>
+    <p class="lead">Pick the next task from actual capacity: overdue first, today next, then high-priority work that matches your energy.</p>
+  </div>
+  <div class="head-actions">
+    <a class="button ghost" href="{% url 'productivity:board' %}">Board</a>
+    <a class="button ghost" href="{% url 'productivity:weekly_review' %}">Weekly Review</a>
+  </div>
+</section>
+
+<section class="kpi-grid">
+  <div class="metric-card primary">
+    <small>Active Tasks</small>
+    <strong>{{ active_count }}</strong>
+  </div>
+  <div class="metric-card">
+    <small>Overdue</small>
+    <strong>{{ overdue|length }}</strong>
+  </div>
+  <div class="metric-card">
+    <small>Planned Today</small>
+    <strong>{{ today|length }}</strong>
+  </div>
+  <div class="metric-card">
+    <small>Done This Week</small>
+    <strong>{{ done_this_week }}</strong>
+  </div>
+</section>
+
+<section class="grid two manage-grid">
+  <div class="panel form-panel">
+    <div class="panel-head compact">
+      <h2>Quick Capture</h2>
+      <span class="pill">Inbox</span>
+    </div>
+    <form method="post" class="form-grid">
+      {% csrf_token %}
+      {% for field in form %}
+        <label class="field">
+          <span>{{ field.label }}</span>
+          {{ field }}
+          {% if field.errors %}<small class="error">{{ field.errors|striptags }}</small>{% endif %}
+        </label>
+      {% endfor %}
+      <div class="form-actions">
+        <button class="button" type="submit">Add task</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">Next Action</p>
+        <h2>Suggested Now</h2>
+      </div>
+      <form method="get" class="energy-filter">
+        <select class="field-input" name="energy" onchange="this.form.submit()">
+          {% for value, label in energy_choices %}
+            <option value="{{ value }}"{% if selected_energy == value %} selected{% endif %}>{{ label }} energy</option>
+          {% endfor %}
+        </select>
+      </form>
+    </div>
+    <div class="task-list">
+      {% for task in suggested %}
+        <article class="task-card priority-{{ task.priority }}">
+          <div>
+            <div class="task-title">#{{ task.id }} {{ task.title }}</div>
+            <div class="task-meta">
+              <span>P{{ task.priority }}</span>
+              <span>{{ task.get_energy_display }}</span>
+              {% if task.due_date %}<span>Due {{ task.due_date }}</span>{% endif %}
+              {% if task.goal %}<span>{{ task.goal.title }}</span>{% endif %}
+            </div>
+          </div>
+          <form method="post" action="{% url 'productivity:task_action' task.id %}" class="inline-actions">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <button class="button small" name="status" value="doing" type="submit">Doing</button>
+            <button class="button small ghost" name="status" value="done" type="submit">Done</button>
+          </form>
+        </article>
+      {% empty %}
+        <div class="empty-state compact">No suggested task for this energy level.</div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="grid two">
+  <div class="panel">
+    <div class="panel-head compact">
+      <h2>Today</h2>
+      <span>{{ day }}</span>
+    </div>
+    <div class="task-list">
+      {% for task in today %}
+        <article class="task-card">
+          <div>
+            <div class="task-title">#{{ task.id }} {{ task.title }}</div>
+            <div class="task-meta">
+              <span>{{ task.get_status_display }}</span>
+              <span>P{{ task.priority }}</span>
+              <span>{{ task.get_energy_display }}</span>
+            </div>
+          </div>
+          <form method="post" action="{% url 'productivity:task_action' task.id %}" class="inline-actions">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <button class="button small ghost" name="status" value="done" type="submit">Done</button>
+          </form>
+        </article>
+      {% empty %}
+        <div class="empty-state compact">No task planned today.</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head compact">
+      <h2>Overdue</h2>
+      <span>{{ overdue|length }}</span>
+    </div>
+    <div class="task-list">
+      {% for task in overdue %}
+        <article class="task-card urgent">
+          <div>
+            <div class="task-title">#{{ task.id }} {{ task.title }}</div>
+            <div class="task-meta">
+              <span>Due {{ task.due_date }}</span>
+              <span>P{{ task.priority }}</span>
+              <span>{{ task.get_energy_display }}</span>
+            </div>
+          </div>
+          <form method="post" action="{% url 'productivity:task_action' task.id %}" class="inline-actions">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <button class="button small" name="status" value="next" type="submit">Next</button>
+            <button class="button small ghost" name="status" value="done" type="submit">Done</button>
+          </form>
+        </article>
+      {% empty %}
+        <div class="empty-state compact">No overdue tasks.</div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="grid two">
+  <div class="panel">
+    <div class="panel-head compact">
+      <h2>Active Goals</h2>
+      <a class="text-link" href="{% url 'productivity:goals' %}">Manage</a>
+    </div>
+    <div class="goal-list">
+      {% for goal in active_goals %}
+        <article class="goal-row">
+          <div>
+            <strong>{{ goal.title }}</strong>
+            <small>{{ goal.get_area_display }} / P{{ goal.priority }}</small>
+          </div>
+          {% if goal.target_value %}
+            <div class="bar"><span style="width: {{ goal.progress_percent }}%"></span></div>
+          {% endif %}
+        </article>
+      {% empty %}
+        <div class="empty-state compact">No active goals yet.</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head compact">
+      <h2>Recently Done</h2>
+    </div>
+    <div class="task-list compact">
+      {% for task in recent_done %}
+        <article class="task-card done">
+          <div>
+            <div class="task-title">#{{ task.id }} {{ task.title }}</div>
+            <div class="task-meta">
+              <span>{{ task.completed_at|date:"Y-m-d H:i" }}</span>
+              <span>P{{ task.priority }}</span>
+            </div>
+          </div>
+        </article>
+      {% empty %}
+        <div class="empty-state compact">No completed task yet.</div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}

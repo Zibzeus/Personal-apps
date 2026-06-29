@@ -600,10 +600,26 @@ class DashboardTests(TestCase):
         SeedCommand().handle()
         self.user = User.objects.create_user(username="tester", password="secret")
 
+    def test_home_requires_login(self):
+        response = self.client.get(reverse("home"))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/accounts/login/", response["Location"])
+
+    def test_home_loads_after_login(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("home"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Choose Your Workspace")
+        self.assertContains(response, "Money Manager")
+        self.assertContains(response, "Productivity")
+
     def test_dashboard_requires_login(self):
         response = self.client.get(reverse("finance:dashboard"))
         self.assertEqual(response.status_code, 302)
         self.assertIn("/accounts/login/", response["Location"])
+
+    def test_dashboard_is_mounted_under_money(self):
+        self.assertEqual(reverse("finance:dashboard"), "/money/")
 
     def test_dashboard_loads_after_login(self):
         self.client.force_login(self.user)

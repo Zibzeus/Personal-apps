@@ -4,52 +4,72 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Money Manager</title>
-  <link rel="stylesheet" href="{% static 'finance/style.css' %}?v=5">
+  <title>{% if request.resolver_match.app_name == "productivity" %}Productivity{% else %}Money Manager{% endif %}</title>
+  <link rel="stylesheet" href="{% static 'finance/style.css' %}?v=6">
 </head>
 <body>
   <div class="app-shell">
     <aside class="sidebar">
-      <a class="brand" href="{% url 'finance:dashboard' %}">
-        <span class="brand-mark">MM</span>
+      <a class="brand" href="{% url 'home' %}">
+        <span class="brand-mark">{% if request.resolver_match.app_name == "productivity" %}PX{% else %}MM{% endif %}</span>
         <span>
-          <strong>Money Manager</strong>
-          <small>Local finance audit</small>
+          <strong>{% if request.resolver_match.app_name == "productivity" %}Productivity{% else %}Money Manager{% endif %}</strong>
+          <small>{% if request.resolver_match.app_name == "productivity" %}Execution system{% else %}Local finance audit{% endif %}</small>
         </span>
       </a>
       <nav class="nav" aria-label="Primary navigation">
-        <a href="{% url 'finance:dashboard' %}"><span>Overview</span></a>
-        <a href="{% url 'finance:coach' %}"><span>Coach</span></a>
-        <a href="{% url 'finance:monthly_audit' %}"><span>Monthly Audit</span></a>
-        <a href="{% url 'finance:subscriptions' %}"><span>Subscriptions</span></a>
-        <a href="{% url 'finance:forecast' %}"><span>Forecast</span></a>
-        <a href="{% url 'finance:financial_goals' %}"><span>Goals</span></a>
-        <a href="{% url 'finance:transactions' %}"><span>Transactions</span></a>
-        <a href="{% url 'finance:transfers' %}"><span>Transfers</span></a>
-        <a href="{% url 'finance:investments' %}"><span>Investments</span></a>
-        <a href="{% url 'finance:financial_freedom' %}"><span>FIRE</span></a>
-        <a href="{% url 'finance:watchlist' %}"><span>Watchlist</span></a>
-        <a href="{% url 'finance:budgets' %}"><span>Budgets</span></a>
-        <a href="{% url 'finance:debts' %}"><span>Debts</span></a>
-        <a href="{% url 'finance:currency' %}"><span>Currency</span></a>
-        <a href="{% url 'finance:recurring' %}"><span>Recurring</span></a>
-        <a href="{% url 'finance:savings' %}"><span>Savings</span></a>
-        <a href="{% url 'finance:accounts' %}"><span>Accounts</span></a>
-        <a href="{% url 'finance:categories' %}"><span>Categories</span></a>
+        <a href="{% url 'home' %}"><span>App Home</span></a>
+        {% if request.resolver_match.app_name == "productivity" %}
+          <a href="{% url 'productivity:dashboard' %}"><span>Daily Dashboard</span></a>
+          <a href="{% url 'productivity:board' %}"><span>Task Board</span></a>
+          <a href="{% url 'productivity:goals' %}"><span>Goals & Projects</span></a>
+          <a href="{% url 'productivity:weekly_review' %}"><span>Weekly Review</span></a>
+          <a href="{% url 'productivity:monthly_review' %}"><span>Monthly Review</span></a>
+          <a href="{% url 'finance:dashboard' %}"><span>Open Money Manager</span></a>
+        {% else %}
+          <a href="{% url 'finance:dashboard' %}"><span>Overview</span></a>
+          <a href="{% url 'finance:coach' %}"><span>Coach</span></a>
+          <a href="{% url 'finance:monthly_audit' %}"><span>Monthly Audit</span></a>
+          <a href="{% url 'finance:subscriptions' %}"><span>Subscriptions</span></a>
+          <a href="{% url 'finance:forecast' %}"><span>Forecast</span></a>
+          <a href="{% url 'finance:financial_goals' %}"><span>Goals</span></a>
+          <a href="{% url 'finance:transactions' %}"><span>Transactions</span></a>
+          <a href="{% url 'finance:transfers' %}"><span>Transfers</span></a>
+          <a href="{% url 'finance:investments' %}"><span>Investments</span></a>
+          <a href="{% url 'finance:financial_freedom' %}"><span>FIRE</span></a>
+          <a href="{% url 'finance:watchlist' %}"><span>Watchlist</span></a>
+          <a href="{% url 'finance:budgets' %}"><span>Budgets</span></a>
+          <a href="{% url 'finance:debts' %}"><span>Debts</span></a>
+          <a href="{% url 'finance:currency' %}"><span>Currency</span></a>
+          <a href="{% url 'finance:recurring' %}"><span>Recurring</span></a>
+          <a href="{% url 'finance:savings' %}"><span>Savings</span></a>
+          <a href="{% url 'finance:accounts' %}"><span>Accounts</span></a>
+          <a href="{% url 'finance:categories' %}"><span>Categories</span></a>
+          <a href="{% url 'productivity:dashboard' %}"><span>Open Productivity</span></a>
+        {% endif %}
       </nav>
       <div class="side-actions">
-        <a class="button ghost full" href="{% url 'finance:export_csv' %}">Export CSV</a>
-        <a class="button ghost full" href="{% url 'finance:backup' %}">Backup DB</a>
+        {% if request.resolver_match.app_name == "productivity" %}
+          <a class="button ghost full" href="{% url 'productivity:dashboard' %}">Capture Task</a>
+          <a class="button ghost full" href="{% url 'productivity:weekly_review' %}">Review Week</a>
+        {% else %}
+          <a class="button ghost full" href="{% url 'finance:export_csv' %}">Export CSV</a>
+          <a class="button ghost full" href="{% url 'finance:backup' %}">Backup DB</a>
+        {% endif %}
       </div>
     </aside>
     <main class="main">
       <header class="topbar">
         <div>
           <span class="status-dot"></span>
-          <span>Local dashboard</span>
+          <span>{% if request.resolver_match.app_name == "productivity" %}Productivity workspace{% else %}Money workspace{% endif %}</span>
         </div>
         <div class="topbar-actions">
-          <a class="button subtle" href="{% url 'finance:transactions' %}">Add transaction</a>
+          {% if request.resolver_match.app_name == "productivity" %}
+            <a class="button subtle" href="{% url 'productivity:dashboard' %}">Add task</a>
+          {% else %}
+            <a class="button subtle" href="{% url 'finance:transactions' %}">Add transaction</a>
+          {% endif %}
         </div>
       </header>
       {% if messages %}
@@ -62,7 +82,7 @@
       {% block content %}{% endblock %}
     </main>
   </div>
-  <script src="{% static 'finance/app.js' %}?v=5"></script>
+  <script src="{% static 'finance/app.js' %}?v=6"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

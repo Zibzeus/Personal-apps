@@ -1,0 +1,59 @@
+{% extends "finance/base.html" %}
+
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="eyebrow">{{ eyebrow }}</p>
+    <h1>{{ title }}</h1>
+    <p class="lead">Capture wins, blockers, and the next focus so daily execution does not drift from the larger direction.</p>
+  </div>
+  <div class="head-actions">
+    <a class="button ghost" href="{% url 'productivity:dashboard' %}">Dashboard</a>
+    <a class="button ghost" href="{% url 'productivity:monthly_review' %}">Monthly</a>
+    <a class="button ghost" href="{% url 'productivity:weekly_review' %}">Weekly</a>
+  </div>
+</section>
+
+<section class="grid two manage-grid">
+  <div class="panel form-panel">
+    <div class="panel-head compact">
+      <h2>Current Review</h2>
+      <span class="pill">{{ title }}</span>
+    </div>
+    <form method="post" class="form-grid">
+      {% csrf_token %}
+      {% for field in form %}
+        <label class="field">
+          <span>{{ field.label }}</span>
+          {{ field }}
+          {% if field.errors %}<small class="error">{{ field.errors|striptags }}</small>{% endif %}
+        </label>
+      {% endfor %}
+      <button class="button" type="submit">Save review</button>
+    </form>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head compact">
+      <h2>History</h2>
+    </div>
+    <div class="review-list">
+      {% for review in reviews %}
+        <article class="review-card">
+          <h3>{% if date_field == "week_start" %}{{ review.week_start }}{% else %}{{ review.month|date:"Y-m" }}{% endif %}</h3>
+          {% if review.next_focus %}
+            <p><strong>Focus:</strong> {{ review.next_focus|linebreaksbr }}</p>
+          {% endif %}
+          <div class="task-meta">
+            <span>Active tasks {{ review.snapshot.active_tasks|default:"-" }}</span>
+            <span>Overdue {{ review.snapshot.overdue_tasks|default:"-" }}</span>
+            <span>Done week {{ review.snapshot.completed_this_week|default:"-" }}</span>
+          </div>
+        </article>
+      {% empty %}
+        <div class="empty-state compact">No reviews yet.</div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,37 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Personal Apps</title>
+  <link rel="stylesheet" href="{% static 'finance/style.css' %}?v=6">
+</head>
+<body>
+  <main class="app-home">
+    <section class="home-shell">
+      <div class="home-head">
+        <p class="eyebrow">Personal Apps</p>
+        <h1>Choose Your Workspace</h1>
+        <p class="lead">Open the app you want to run now. Both apps use the same local login and database, but keep their workflows separate.</p>
+      </div>
+      <div class="app-choice-grid">
+        <a class="app-choice money" href="{% url 'finance:dashboard' %}">
+          <span class="brand-mark">MM</span>
+          <span>
+            <strong>Money Manager</strong>
+            <small>Finance dashboard, budget, goals, investments, and monthly audit.</small>
+          </span>
+        </a>
+        <a class="app-choice productivity" href="{% url 'productivity:dashboard' %}">
+          <span class="brand-mark">PX</span>
+          <span>
+            <strong>Productivity</strong>
+            <small>Tasks, energy-based execution, kanban, goals, and reviews.</small>
+          </span>
+        </a>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
